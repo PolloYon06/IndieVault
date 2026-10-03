@@ -1,0 +1,47 @@
+{% extends 'base.html' %}
+
+{% block content %}
+    <section class="hero" aria-labelledby="hero-title">
+        <p class="eyebrow">Tu próxima aventura te espera</p>
+        <h1 id="hero-title">Los mundos pequeños,<br><span>las grandes historias.</span></h1>
+        <p class="hero-copy">Descubre propuestas independientes y guarda los juegos que quieres tener siempre cerca.</p>
+    </section>
+
+    <section aria-labelledby="choice-title">
+        <h2 class="choice-heading" id="choice-title">¿Por dónde quieres empezar?</h2>
+        <div class="choices">
+            <a class="choice-card" href="{% url 'explorar' %}">
+                <span class="card-kicker">01 / Descubrir</span>
+                <span class="card-icon" aria-hidden="true">⌕</span>
+                <h2>Explorar juegos</h2>
+                <p>Encuentra tu próximo favorito entre historias y mundos fuera de lo común.</p>
+                <span class="card-link">Ir a explorar <span aria-hidden="true">↗</span></span>
+            </a>
+            <a class="choice-card library" href="{% url 'biblioteca' %}">
+                <span class="card-kicker">02 / Coleccionar</span>
+                <span class="card-icon" aria-hidden="true">▤</span>
+                <h2>Mi biblioteca</h2>
+                <p>Un rincón propio para reunir los juegos que te gustan y los que quieres probar.</p>
+                <span class="card-link">Ver mi biblioteca <span aria-hidden="true">↗</span></span>
+            </a>
+        </div>
+    </section>
+
+    <section class="destination" id="explorar" aria-labelledby="explorar-title">
+        <p class="section-kicker">Ruta 01 · Descubrir</p>
+        <div>
+            <h2 id="explorar-title">Explora nuevos mundos</h2>
+            <p>Recorre una selección de juegos independientes y encuentra esa aventura que aún no sabías que buscabas.</p>
+            <a class="back-link" href="{% url 'explorar' %}">Abrir el catálogo ↗</a>
+        </div>
+    </section>
+
+    <section class="destination library-destination" id="biblioteca" aria-labelledby="biblioteca-title">
+        <p class="section-kicker">Ruta 02 · Coleccionar</p>
+        <div>
+            <h2 id="biblioteca-title">Tu biblioteca, a tu manera</h2>
+            <p>Organiza tus descubrimientos, guarda pendientes y ten tus juegos favoritos siempre a mano.</p>
+            <a class="back-link" href="{% url 'biblioteca' %}">Abrir mi biblioteca ↗</a>
+        </div>
+    </section>
+{% endblock %}

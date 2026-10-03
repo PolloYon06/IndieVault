@@ -1,0 +1,80 @@
+{% extends 'base.html' %}
+
+{% block title %}Explorar juegos · IndieVault{% endblock %}
+
+{% block content %}
+    <section class="page-head" aria-labelledby="page-title">
+        <p class="eyebrow">Ruta 01 · Descubrir</p>
+        <h1 id="page-title">Explora nuevos <span>mundos</span></h1>
+        <p class="hero-copy">Una selección de juegos independientes ordenados para que encuentres rápido ese que quieres probar.</p>
+    </section>
+
+    <section class="page-shell" aria-labelledby="catalogo-title">
+        <h2 class="choice-heading" id="catalogo-title">Catálogo</h2>
+
+        <div class="toolbar" role="group" aria-label="Filtrar por género">
+            <button class="chip" type="button" aria-pressed="true">Todos</button>
+            <button class="chip" type="button" aria-pressed="false">Aventura</button>
+            <button class="chip" type="button" aria-pressed="false">Puzle</button>
+            <button class="chip" type="button" aria-pressed="false">Narrativa</button>
+            <button class="chip" type="button" aria-pressed="false">Exploración</button>
+            <button class="chip" type="button" aria-pressed="false">Estrategia</button>
+        </div>
+
+        <div class="game-grid">
+            <article class="game-card">
+                <div class="cover" style="--tint: rgba(214, 243, 106, 0.26)" aria-hidden="true">◈</div>
+                <div class="game-body">
+                    <h3>Sendero de luciérnagas</h3>
+                    <p class="game-meta">Bruma Studio · 2025</p>
+                    <div class="tags"><span class="tag">Aventura</span><span class="tag">Narrativa</span></div>
+                </div>
+            </article>
+
+            <article class="game-card">
+                <div class="cover" style="--tint: rgba(194, 168, 255, 0.26)" aria-hidden="true">◇</div>
+                <div class="game-body">
+                    <h3>Cripta de vidrio</h3>
+                    <p class="game-meta">Nueve Lentes · 2024</p>
+                    <div class="tags"><span class="tag">Puzle</span><span class="tag">Exploración</span></div>
+                </div>
+            </article>
+
+            <article class="game-card">
+                <div class="cover" style="--tint: rgba(126, 214, 223, 0.26)" aria-hidden="true">◉</div>
+                <div class="game-body">
+                    <h3>Jardín de invierno</h3>
+                    <p class="game-meta">Marea Baja · 2025</p>
+                    <div class="tags"><span class="tag">Exploración</span></div>
+                </div>
+            </article>
+
+            <article class="game-card">
+                <div class="cover" style="--tint: rgba(255, 176, 138, 0.24)" aria-hidden="true">◐</div>
+                <div class="game-body">
+                    <h3>El último faro</h3>
+                    <p class="game-meta">Ala Rota · 2023</p>
+                    <div class="tags"><span class="tag">Aventura</span><span class="tag">Narrativa</span></div>
+                </div>
+            </article>
+
+            <article class="game-card">
+                <div class="cover" style="--tint: rgba(196, 168, 255, 0.24)" aria-hidden="true">⬡</div>
+                <div class="game-body">
+                    <h3>Taller de engranajes</h3>
+                    <p class="game-meta">Cuarto Piso · 2024</p>
+                    <div class="tags"><span class="tag">Estrategia</span><span class="tag">Puzle</span></div>
+                </div>
+            </article>
+
+            <article class="game-card">
+                <div class="cover" style="--tint: rgba(214, 243, 106, 0.2)" aria-hidden="true">✳</div>
+                <div class="game-body">
+                    <h3>Aurora fija</h3>
+                    <p class="game-meta">Senda Norte · 2025</p>
+                    <div class="tags"><span class="tag">Exploración</span><span class="tag">Aventura</span></div>
+                </div>
+            </article>
+        </div>
+    </section>
+{% endblock %}

@@ -1,0 +1,12 @@
+__pycache__/
+*.py[cod]
+db.sqlite3
+.env
+indieEnv/
+staticfiles/
+
+# Local tooling / OS
+.vscode/
+.idea/
+*.sqlite3
+.DS_Store

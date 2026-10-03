@@ -1,0 +1,94 @@
+{% extends 'base.html' %}
+
+{% block title %}Mi biblioteca · IndieVault{% endblock %}
+
+{% block content %}
+    <section class="page-head library" aria-labelledby="page-title">
+        <p class="eyebrow library">Ruta 02 · Coleccionar</p>
+        <h1 id="page-title">Tu biblioteca, <span class="lilac">a tu manera</span></h1>
+        <p class="hero-copy">Un rincón propio para reunir los juegos que te gustan y los que quieres probar.</p>
+    </section>
+
+    <section class="page-shell library" aria-labelledby="pendientes-title">
+        <div class="shelf">
+            <div class="shelf-head">
+                <h2 id="pendientes-title">Quiero jugar</h2>
+                <span class="count">3 títulos</span>
+            </div>
+
+            <div class="entry">
+                <span class="entry-mark" aria-hidden="true">◇</span>
+                <div class="entry-body">
+                    <h3>Cripta de vidrio</h3>
+                    <p>Nueve Lentes · Puzle, Exploración</p>
+                </div>
+                <span class="status">Pendiente</span>
+            </div>
+
+            <div class="entry">
+                <span class="entry-mark" aria-hidden="true">⬡</span>
+                <div class="entry-body">
+                    <h3>Taller de engranajes</h3>
+                    <p>Cuarto Piso · Estrategia, Puzle</p>
+                </div>
+                <span class="status">Pendiente</span>
+            </div>
+
+            <div class="entry">
+                <span class="entry-mark" aria-hidden="true">◐</span>
+                <div class="entry-body">
+                    <h3>El último faro</h3>
+                    <p>Ala Rota · Aventura, Narrativa</p>
+                </div>
+                <span class="status">Pendiente</span>
+            </div>
+        </div>
+
+        <div class="shelf">
+            <div class="shelf-head">
+                <h2 id="jugando-title">Jugando ahora</h2>
+                <span class="count">1 título</span>
+            </div>
+
+            <div class="entry">
+                <span class="entry-mark" aria-hidden="true">◈</span>
+                <div class="entry-body">
+                    <h3>Sendero de luciérnagas</h3>
+                    <p>Bruma Studio · Aventura, Narrativa</p>
+                </div>
+                <span class="status playing">En curso</span>
+            </div>
+        </div>
+
+        <div class="shelf">
+            <div class="shelf-head">
+                <h2 id="terminados-title">Terminados</h2>
+                <span class="count">2 títulos</span>
+            </div>
+
+            <div class="entry">
+                <span class="entry-mark" aria-hidden="true">◉</span>
+                <div class="entry-body">
+                    <h3>Jardín de invierno</h3>
+                    <p>Marea Baja · Exploración</p>
+                </div>
+                <span class="status done">Terminado</span>
+            </div>
+
+            <div class="entry">
+                <span class="entry-mark" aria-hidden="true">✳</span>
+                <div class="entry-body">
+                    <h3>Aurora fija</h3>
+                    <p>Senda Norte · Exploración, Aventura</p>
+                </div>
+                <span class="status done">Terminado</span>
+            </div>
+        </div>
+
+        <div class="empty-state">
+            <h2>¿Falta algo en tu estantería?</h2>
+            <p>Explora el catálogo y guarda los próximos títulos que quieras tener siempre a mano.</p>
+            <a class="button library" href="{% url 'explorar' %}">Explorar juegos <span aria-hidden="true">↗</span></a>
+        </div>
+    </section>
+{% endblock %}

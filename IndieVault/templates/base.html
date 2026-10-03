@@ -1,0 +1,33 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#11110f">
+    <meta name="description" content="IndieVault: descubre juegos independientes o explora tu biblioteca personal.">
+    <title>{% block title %}IndieVault — encuentra tu próximo mundo{% endblock %}</title>
+    <link rel="stylesheet" href="{% static 'css/indievault.css' %}">
+</head>
+<body>
+    <header class="site-header" id="inicio">
+        <a class="brand" href="{% url 'index' %}" aria-label="IndieVault, inicio">
+            <span class="brand-mark" aria-hidden="true">✳</span>
+            <span>IndieVault</span>
+        </a>
+        <nav class="site-nav" aria-label="Navegación principal">
+            <a href="{% url 'index' %}"{% if request.resolver_match.url_name == 'index' %} class="active" aria-current="page"{% endif %}>Inicio</a>
+            <a href="{% url 'explorar' %}"{% if request.resolver_match.url_name == 'explorar' %} class="active" aria-current="page"{% endif %}>Explorar</a>
+            <a class="library{% if request.resolver_match.url_name == 'biblioteca' %} active{% endif %}" href="{% url 'biblioteca' %}"{% if request.resolver_match.url_name == 'biblioteca' %} aria-current="page"{% endif %}>Biblioteca</a>
+        </nav>
+    </header>
+
+    <main>
+        {% block content %}{% endblock %}
+    </main>
+
+    <footer class="site-footer">
+        IndieVault · Hecho para quienes buscan algo distinto.
+    </footer>
+</body>
+</html>
