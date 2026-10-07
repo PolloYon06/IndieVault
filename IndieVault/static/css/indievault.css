@@ -304,9 +304,70 @@ h1 span.lilac { color: var(--lilac); }
 .chip:hover { color: var(--ink); border-color: rgba(214, 243, 106, 0.4); }
 .chip[aria-pressed="true"] { color: var(--lime); border-color: rgba(214, 243, 106, 0.55); }
 
+a.chip { display: inline-block; text-decoration: none; }
+
 .library .chip[aria-pressed="true"] {
     color: var(--lilac);
     border-color: rgba(194, 168, 255, 0.55);
+}
+
+.filter-bar {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 18px;
+}
+
+.filter-form {
+    display: flex;
+    flex: 1;
+    flex-wrap: wrap;
+    gap: 10px;
+    align-items: center;
+}
+
+.search-input {
+    flex: 1;
+    min-width: 200px;
+    padding: 10px 17px;
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    background: var(--panel);
+    color: var(--ink);
+    font: inherit;
+    font-size: 0.85rem;
+}
+
+.search-input::placeholder { color: var(--muted); }
+
+.search-input:focus-visible,
+.filter-select:focus-visible {
+    outline: 2px solid var(--lime);
+    outline-offset: 2px;
+}
+
+.filter-select {
+    padding: 10px 34px 10px 16px;
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    background:
+        linear-gradient(45deg, transparent 50%, var(--muted) 50%) calc(100% - 18px) 50% / 6px 6px no-repeat,
+        linear-gradient(135deg, var(--muted) 50%, transparent 50%) calc(100% - 13px) 50% / 6px 6px no-repeat,
+        var(--panel);
+    color: var(--ink);
+    font-family: inherit;
+    font-size: 0.82rem;
+    appearance: none;
+}
+
+.chip-row { margin-top: 0; }
+
+.results-count {
+    margin: -6px 0 20px;
+    color: var(--muted);
+    font-size: 0.76rem;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
 }
 
 .game-grid {
@@ -357,6 +418,15 @@ h1 span.lilac { color: var(--lilac); }
     letter-spacing: 0.04em;
     text-transform: uppercase;
 }
+
+.price {
+    margin: -8px 0 14px;
+    font-size: 1.06rem;
+    font-weight: 750;
+    letter-spacing: -0.03em;
+}
+
+.price.free { color: var(--lime); }
 
 .tags {
     display: flex;
@@ -550,6 +620,127 @@ h1 span.lilac { color: var(--lilac); }
     clip: rect(0 0 0 0);
     white-space: nowrap;
 }
+
+.plans {
+    padding: clamp(48px, 7vw, 84px) 0 clamp(68px, 9vw, 110px);
+    border-top: 1px solid var(--line);
+    text-align: center;
+}
+
+.plans-head h2 {
+    margin: 8px 0 12px;
+    font-size: clamp(1.8rem, 4vw, 2.6rem);
+    letter-spacing: -0.06em;
+}
+
+.plans-head .hero-copy { max-width: 560px; margin-bottom: 0; }
+
+.plan-grid {
+    display: grid;
+    gap: 16px;
+    margin: 44px auto 0;
+}
+
+.plan-card {
+    max-width: 470px;
+    margin-inline: auto;
+    padding: clamp(26px, 4vw, 36px);
+    border: 1px solid var(--line);
+    border-radius: 18px;
+    background: linear-gradient(150deg, rgba(255,255,255,0.05), transparent 72%), var(--panel);
+    text-align: left;
+}
+
+.plan-card.featured {
+    border-color: rgba(214, 243, 106, 0.45);
+    box-shadow: 0 22px 60px rgba(0, 0, 0, 0.35);
+}
+
+.plan-badge {
+    display: inline-block;
+    padding: 7px 13px;
+    border: 1px solid rgba(214, 243, 106, 0.35);
+    border-radius: 999px;
+    background: rgba(214, 243, 106, 0.1);
+    color: var(--lime);
+    font-size: 0.71rem;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+}
+
+.plan-card h3 {
+    margin: 20px 0 6px;
+    font-size: 1.35rem;
+    letter-spacing: -0.05em;
+}
+
+.plan-price {
+    margin: 0 0 20px;
+    font-size: 2.7rem;
+    font-weight: 750;
+    letter-spacing: -0.06em;
+}
+
+.plan-old {
+    margin-right: 9px;
+    color: var(--muted);
+    font-size: 1.2rem;
+    font-weight: 600;
+    text-decoration: line-through;
+}
+
+.plan-price small {
+    color: var(--muted);
+    font-size: 0.9rem;
+    font-weight: 600;
+    letter-spacing: 0;
+}
+
+.plan-perks {
+    display: grid;
+    gap: 11px;
+    margin: 0 0 26px;
+    padding: 0;
+    list-style: none;
+    color: var(--muted);
+    font-size: 0.9rem;
+    line-height: 1.5;
+}
+
+.plan-perks li {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+}
+
+.plan-perks li::before {
+    content: "✓";
+    flex: none;
+    color: var(--lime);
+    font-weight: 750;
+}
+
+.plan-card .button {
+    width: 100%;
+    justify-content: center;
+}
+
+.plan-note {
+    margin: 14px 0 0;
+    color: var(--muted);
+    font-size: 0.76rem;
+    text-align: center;
+}
+
+.plans > .subscribe-note { margin-top: 44px; }
+
+.no-results {
+    grid-column: 1 / -1;
+    border-style: dashed;
+}
+
+.no-results .button { background: rgba(255,255,255,0.02); }
 
 .site-footer {
     padding: 35px 0 28px;

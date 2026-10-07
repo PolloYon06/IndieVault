@@ -10,71 +10,57 @@
     </section>
 
     <section class="page-shell" aria-labelledby="catalogo-title">
-        <h2 class="choice-heading" id="catalogo-title">Catálogo</h2>
-
-        <div class="toolbar" role="group" aria-label="Filtrar por género">
-            <button class="chip" type="button" aria-pressed="true">Todos</button>
-            <button class="chip" type="button" aria-pressed="false">Aventura</button>
-            <button class="chip" type="button" aria-pressed="false">Puzle</button>
-            <button class="chip" type="button" aria-pressed="false">Narrativa</button>
-            <button class="chip" type="button" aria-pressed="false">Exploración</button>
-            <button class="chip" type="button" aria-pressed="false">Estrategia</button>
+        <div class="filter-bar">
+            <form class="filter-form" method="get" action="{% url 'explorar' %}">
+                <input class="search-input" type="search" name="q" value="{{ q }}" placeholder="Buscar por título o estudio…" aria-label="Buscar juegos">
+                <input type="hidden" name="genre" value="{{ genre }}">
+                <select class="filter-select" name="sort" aria-label="Ordenar por">
+                    <option value=""{% if sort == '' %} selected{% endif %}>Relevancia</option>
+                    <option value="az"{% if sort == 'az' %} selected{% endif %}>A → Z</option>
+                    <option value="za"{% if sort == 'za' %} selected{% endif %}>Z → A</option>
+                    <option value="price_asc"{% if sort == 'price_asc' %} selected{% endif %}>Precio menor a mayor</option>
+                    <option value="price_desc"{% if sort == 'price_desc' %} selected{% endif %}>Precio mayor a menor</option>
+                    <option value="newest"{% if sort == 'newest' %} selected{% endif %}>Más recientes</option>
+                </select>
+                <select class="filter-select" name="price" aria-label="Filtrar por precio">
+                    <option value=""{% if price == '' %} selected{% endif %}>Cualquier precio</option>
+                    <option value="free"{% if price == 'free' %} selected{% endif %}>Gratis</option>
+                    <option value="5"{% if price == '5' %} selected{% endif %}>Menos de $5</option>
+                    <option value="10"{% if price == '10' %} selected{% endif %}>Menos de $10</option>
+                </select>
+                <button class="button" type="submit">Buscar</button>
+            </form>
         </div>
 
+        <div class="toolbar chip-row" role="group" aria-label="Filtrar por género">
+            <a class="chip{% if not genre %} active{% endif %}" href="{% querystring genre=None %}"{% if not genre %} aria-pressed="true"{% endif %}>Todos</a>
+            {% for g in genres %}
+                <a class="chip{% if genre == g %} active{% endif %}" href="{% querystring genre=g %}"{% if genre == g %} aria-pressed="true"{% endif %}>{{ g }}</a>
+            {% endfor %}
+        </div>
+
+        <p class="results-count">{% if q or genre or price or sort %}{% endif %}{{ games|length }} resultado{{ games|length|pluralize }}</p>
+
         <div class="game-grid">
-            <article class="game-card">
-                <div class="cover" style="--tint: rgba(214, 243, 106, 0.26)" aria-hidden="true">◈</div>
-                <div class="game-body">
-                    <h3>Sendero de luciérnagas</h3>
-                    <p class="game-meta">Bruma Studio · 2025</p>
-                    <div class="tags"><span class="tag">Aventura</span><span class="tag">Narrativa</span></div>
+            {% for game in games %}
+                <article class="game-card">
+                    <div class="cover" style="--tint: {{ game.tint }}" aria-hidden="true">{{ game.symbol }}</div>
+                    <div class="game-body">
+                        <h3>{{ game.title }}</h3>
+                        <p class="game-meta">{{ game.studio }} · {{ game.year }}</p>
+                        <p class="price{% if game.price == 0 %} free{% endif %}">{% if game.price == 0 %}Gratis{% else %}${{ game.price|stringformat:'.2f' }}{% endif %}</p>
+                        <div class="tags">
+                            {% for tag in game.genres %}<span class="tag">{{ tag }}</span>{% endfor %}
+                        </div>
+                    </div>
+                </article>
+            {% empty %}
+                <div class="empty-state no-results">
+                    <h2>No encontramos nada con esos filtros</h2>
+                    <p>Prueba con otro término, quita el precio o vuelve a todos los géneros.</p>
+                    <a class="button" href="{% url 'explorar' %}">Limpiar filtros <span aria-hidden="true">↗</span></a>
                 </div>
-            </article>
-
-            <article class="game-card">
-                <div class="cover" style="--tint: rgba(194, 168, 255, 0.26)" aria-hidden="true">◇</div>
-                <div class="game-body">
-                    <h3>Cripta de vidrio</h3>
-                    <p class="game-meta">Nueve Lentes · 2024</p>
-                    <div class="tags"><span class="tag">Puzle</span><span class="tag">Exploración</span></div>
-                </div>
-            </article>
-
-            <article class="game-card">
-                <div class="cover" style="--tint: rgba(126, 214, 223, 0.26)" aria-hidden="true">◉</div>
-                <div class="game-body">
-                    <h3>Jardín de invierno</h3>
-                    <p class="game-meta">Marea Baja · 2025</p>
-                    <div class="tags"><span class="tag">Exploración</span></div>
-                </div>
-            </article>
-
-            <article class="game-card">
-                <div class="cover" style="--tint: rgba(255, 176, 138, 0.24)" aria-hidden="true">◐</div>
-                <div class="game-body">
-                    <h3>El último faro</h3>
-                    <p class="game-meta">Ala Rota · 2023</p>
-                    <div class="tags"><span class="tag">Aventura</span><span class="tag">Narrativa</span></div>
-                </div>
-            </article>
-
-            <article class="game-card">
-                <div class="cover" style="--tint: rgba(196, 168, 255, 0.24)" aria-hidden="true">⬡</div>
-                <div class="game-body">
-                    <h3>Taller de engranajes</h3>
-                    <p class="game-meta">Cuarto Piso · 2024</p>
-                    <div class="tags"><span class="tag">Estrategia</span><span class="tag">Puzle</span></div>
-                </div>
-            </article>
-
-            <article class="game-card">
-                <div class="cover" style="--tint: rgba(214, 243, 106, 0.2)" aria-hidden="true">✳</div>
-                <div class="game-body">
-                    <h3>Aurora fija</h3>
-                    <p class="game-meta">Senda Norte · 2025</p>
-                    <div class="tags"><span class="tag">Exploración</span><span class="tag">Aventura</span></div>
-                </div>
-            </article>
+            {% endfor %}
         </div>
     </section>
 {% endblock %}
