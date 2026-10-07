@@ -26,6 +26,17 @@ class RouteTests(TestCase):
         self.assertContains(response, 'class="library active"')
         self.assertContains(response, 'aria-current="page"')
 
+    def test_brand_uses_logo(self):
+        response = self.client.get(reverse('index'))
+        self.assertContains(response, 'img/logo.png')
+        self.assertContains(response, 'img/logo-large.png')
+
+    def test_subscription_has_trust_pills(self):
+        response = self.client.get(reverse('suscripcion'))
+        self.assertContains(response, 'Gratis para siempre')
+        self.assertContains(response, 'Sin spam')
+        self.assertContains(response, 'Cancela cuando quieras')
+
     def test_index_cards_link_to_real_pages(self):
         response = self.client.get(reverse('index'))
         self.assertContains(response, reverse('explorar'))

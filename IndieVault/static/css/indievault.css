@@ -1,10 +1,10 @@
 :root {
     color-scheme: dark;
-    --ink: #f5f1e8;
-    --muted: #aaa79f;
-    --night: #11110f;
-    --panel: #1c1c19;
-    --line: rgba(245, 241, 232, 0.13);
+    --ink: #f2f3f8;
+    --muted: #9aa0b4;
+    --night: #0a0a12;
+    --panel: #161624;
+    --line: rgba(205, 215, 245, 0.12);
     --lime: #d6f36a;
     --lilac: #c2a8ff;
 }
@@ -54,14 +54,30 @@ a:focus-visible {
 }
 
 .brand-mark {
-    width: 32px;
-    height: 32px;
+    width: 34px;
+    height: 34px;
     display: grid;
     place-items: center;
-    border: 1px solid rgba(214, 243, 106, 0.45);
     border-radius: 10px;
-    color: var(--lime);
-    font-size: 1.2rem;
+    overflow: hidden;
+    box-shadow: 0 0 0 1px rgba(214, 243, 106, 0.35), 0 8px 24px rgba(214, 243, 106, 0.12);
+}
+
+.brand-mark img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+}
+
+.hero-logo {
+    width: clamp(120px, 22vw, 210px);
+    height: clamp(120px, 22vw, 210px);
+    display: block;
+    margin: 0 auto 34px;
+    border-radius: 28px;
+    object-fit: cover;
+    box-shadow: 0 0 0 1px rgba(214, 243, 106, 0.25), 0 30px 80px rgba(214, 243, 106, 0.12);
 }
 
 .eyebrow, .card-kicker, .section-kicker {
@@ -372,7 +388,7 @@ a.chip { display: inline-block; text-decoration: none; }
 
 .game-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
     gap: 16px;
 }
 
@@ -605,6 +621,27 @@ a.chip { display: inline-block; text-decoration: none; }
 }
 
 .subscribe-form .button { border-radius: 999px; }
+
+.trust-row {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 9px;
+    margin: 20px 0 0;
+    padding: 0;
+    list-style: none;
+}
+
+.trust-pill {
+    padding: 7px 14px;
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.03);
+    color: var(--muted);
+    font-size: 0.75rem;
+    font-weight: 650;
+    letter-spacing: 0.02em;
+}
 
 .subscribe-note {
     margin: 16px 0 0;
