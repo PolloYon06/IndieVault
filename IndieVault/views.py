@@ -1,63 +1,9 @@
+from decimal import Decimal
+
+from django.db.models import Q
 from django.shortcuts import render
 
-GAMES = [
-    {
-        'title': 'Sendero de luciérnagas',
-        'studio': 'Bruma Studio',
-        'year': 2025,
-        'genres': ['Aventura', 'Narrativa'],
-        'price': 9.99,
-        'symbol': '◈',
-        'tint': 'rgba(214, 243, 106, 0.26)',
-    },
-    {
-        'title': 'Cripta de vidrio',
-        'studio': 'Nueve Lentes',
-        'year': 2024,
-        'genres': ['Puzle', 'Exploración'],
-        'price': 0,
-        'symbol': '◇',
-        'tint': 'rgba(194, 168, 255, 0.26)',
-    },
-    {
-        'title': 'Jardín de invierno',
-        'studio': 'Marea Baja',
-        'year': 2025,
-        'genres': ['Exploración'],
-        'price': 4.50,
-        'symbol': '◉',
-        'tint': 'rgba(126, 214, 223, 0.26)',
-    },
-    {
-        'title': 'El último faro',
-        'studio': 'Ala Rota',
-        'year': 2023,
-        'genres': ['Aventura', 'Narrativa'],
-        'price': 19.99,
-        'symbol': '◐',
-        'tint': 'rgba(255, 176, 138, 0.24)',
-    },
-    {
-        'title': 'Taller de engranajes',
-        'studio': 'Cuarto Piso',
-        'year': 2024,
-        'genres': ['Estrategia', 'Puzle'],
-        'price': 12.99,
-        'symbol': '⬡',
-        'tint': 'rgba(196, 168, 255, 0.24)',
-    },
-    {
-        'title': 'Aurora fija',
-        'studio': 'Senda Norte',
-        'year': 2025,
-        'genres': ['Exploración', 'Aventura'],
-        'price': 0,
-        'symbol': '✳',
-        'tint': 'rgba(214, 243, 106, 0.2)',
-    },
-]
-
-GENRES = ['Aventura', 'Puzle', 'Narrativa', 'Exploración', 'Estrategia']
+from .models import Game, LibraryEntry
 
 
 def index(request):
@@ -65,40 +11,40 @@ def index(request):
 
 
 def explorar(request):
-    games = GAMES
+    games = Game.objects.all()
     genre = request.GET.get('genre', '')
     query = request.GET.get('q', '').strip()
     sort = request.GET.get('sort', '')
     price = request.GET.get('price', '')
 
     if genre:
-        games = [g for g in games if genre in g['genres']]
+        games = games.filter(genres__icontains=genre)
     if query:
-        needle = query.lower()
-        games = [
-            g for g in games
-            if needle in g['title'].lower() or needle in g['studio'].lower()
-        ]
+        games = games.filter(Q(title__icontains=query) | Q(studio__icontains=query))
     if price == 'free':
-        games = [g for g in games if g['price'] == 0]
+        games = games.filter(price=0)
     elif price:
-        cap = float(price)
-        games = [g for g in games if 0 < g['price'] < cap]
+        cap = Decimal(price)
+        games = games.filter(price__gt=0, price__lt=cap)
 
     if sort == 'az':
-        games = sorted(games, key=lambda g: g['title'].lower())
+        games = games.order_by('title')
     elif sort == 'za':
-        games = sorted(games, key=lambda g: g['title'].lower(), reverse=True)
+        games = games.order_by('-title')
     elif sort == 'price_asc':
-        games = sorted(games, key=lambda g: g['price'])
+        games = games.order_by('price')
     elif sort == 'price_desc':
-        games = sorted(games, key=lambda g: g['price'], reverse=True)
+        games = games.order_by('-price')
     elif sort == 'newest':
-        games = sorted(games, key=lambda g: g['year'], reverse=True)
+        games = games.order_by('-year')
+    else:
+        games = games.order_by('id')
+
+    genre_set = {g for game in Game.objects.all() for g in game.genre_list()}
 
     return render(request, 'explorar.html', {
         'games': games,
-        'genres': GENRES,
+        'genres': sorted(genre_set),
         'genre': genre,
         'q': query,
         'sort': sort,
@@ -107,7 +53,21 @@ def explorar(request):
 
 
 def biblioteca(request):
-    return render(request, 'biblioteca.html')
+    groups = [
+        ('Quiero jugar', 'Pendiente'),
+        ('Jugando', 'En curso'),
+        ('Terminados', 'Terminado'),
+    ]
+    group_data = [
+        {
+            'title': title,
+            'status': status,
+            'count': LibraryEntry.objects.filter(status=status).count(),
+            'entries': LibraryEntry.objects.filter(status=status).select_related('game'),
+        }
+        for title, status in groups
+    ]
+    return render(request, 'biblioteca.html', {'groups': group_data})
 
 
 def suscripcion(request):

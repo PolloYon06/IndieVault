@@ -4,86 +4,33 @@
 
 {% block content %}
     <section class="page-head library" aria-labelledby="page-title">
-        <p class="eyebrow library">Ruta 02 · Colección</p>
+        <p class="eyebrow library">Ruta 02 · Coleccionar</p>
         <h1 id="page-title">Tu biblioteca, <span class="lilac">a tu manera</span></h1>
         <p class="hero-copy">Un rincón propio para reunir los juegos que te gustan y los que quieres probar.</p>
     </section>
 
-    <section class="page-shell library" aria-labelledby="pendientes-title">
+    <section class="page-shell library" aria-labelledby="biblioteca-title">
+        {% for group in groups %}
         <div class="shelf">
             <div class="shelf-head">
-                <h2 id="pendientes-title">Quiero jugar</h2>
-                <span class="count">3 títulos</span>
+                <h2>{{ group.title }}</h2>
+                <span class="count">{{ group.count }} título{{ group.count|pluralize }}</span>
             </div>
 
+            {% for entry in group.entries %}
             <div class="entry">
-                <span class="entry-mark" aria-hidden="true">◇</span>
+                <span class="entry-mark" aria-hidden="true">{{ entry.game.symbol }}</span>
                 <div class="entry-body">
-                    <h3>Cripta de vidrio</h3>
-                    <p>Nueve Lentes · Puzle, Exploración</p>
+                    <h3>{{ entry.game.title }}</h3>
+                    <p>{{ entry.game.studio }} · {{ entry.game.genre_list|join:", " }}</p>
                 </div>
-                <span class="status">Pendiente</span>
+                <span class="status{% if entry.status == 'En curso' %} playing{% elif entry.status == 'Terminado' %} done{% endif %}">{{ entry.status }}</span>
             </div>
-
-            <div class="entry">
-                <span class="entry-mark" aria-hidden="true">⬡</span>
-                <div class="entry-body">
-                    <h3>Taller de engranajes</h3>
-                    <p>Cuarto Piso · Estrategia, Puzle</p>
-                </div>
-                <span class="status">Pendiente</span>
-            </div>
-
-            <div class="entry">
-                <span class="entry-mark" aria-hidden="true">◐</span>
-                <div class="entry-body">
-                    <h3>El último faro</h3>
-                    <p>Ala Rota · Aventura, Narrativa</p>
-                </div>
-                <span class="status">Pendiente</span>
-            </div>
+            {% empty %}
+            <p class="count shelf-empty">Sin títulos todavía.</p>
+            {% endfor %}
         </div>
-
-        <div class="shelf">
-            <div class="shelf-head">
-                <h2 id="jugando-title">Jugando</h2>
-                <span class="count">1 título</span>
-            </div>
-
-            <div class="entry">
-                <span class="entry-mark" aria-hidden="true">◈</span>
-                <div class="entry-body">
-                    <h3>Sendero de luciérnagas</h3>
-                    <p>Bruma Studio · Aventura, Narrativa</p>
-                </div>
-                <span class="status playing">En curso</span>
-            </div>
-        </div>
-
-        <div class="shelf">
-            <div class="shelf-head">
-                <h2 id="terminados-title">Terminados</h2>
-                <span class="count">2 títulos</span>
-            </div>
-
-            <div class="entry">
-                <span class="entry-mark" aria-hidden="true">◉</span>
-                <div class="entry-body">
-                    <h3>Jardín de invierno</h3>
-                    <p>Marea Baja · Exploración</p>
-                </div>
-                <span class="status done">Terminado</span>
-            </div>
-
-            <div class="entry">
-                <span class="entry-mark" aria-hidden="true">✳</span>
-                <div class="entry-body">
-                    <h3>Aurora fija</h3>
-                    <p>Senda Norte · Exploración, Aventura</p>
-                </div>
-                <span class="status done">Terminado</span>
-            </div>
-        </div>
+        {% endfor %}
 
         <div class="empty-state">
             <h2>¿Falta algo en tu biblioteca?</h2>

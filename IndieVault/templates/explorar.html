@@ -48,9 +48,9 @@
                     <div class="game-body">
                         <h3>{{ game.title }}</h3>
                         <p class="game-meta">{{ game.studio }} · {{ game.year }}</p>
-                        <p class="price{% if game.price == 0 %} free{% endif %}">{% if game.price == 0 %}Gratis{% else %}${{ game.price|stringformat:'.2f' }}{% endif %}</p>
+                        <p class="price{% if game.is_free %} free{% endif %}">{% if game.is_free %}Gratis{% else %}${{ game.price|stringformat:'.2f' }}{% endif %}</p>
                         <div class="tags">
-                            {% for tag in game.genres %}<span class="tag">{{ tag }}</span>{% endfor %}
+                            {% for tag in game.genre_list %}<span class="tag">{{ tag }}</span>{% endfor %}
                         </div>
                     </div>
                 </article>
