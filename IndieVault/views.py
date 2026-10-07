@@ -11,3 +11,7 @@ def explorar(request):
 
 def biblioteca(request):
     return render(request, 'biblioteca.html')
+
+
+def suscripcion(request):
+    return render(request, 'suscripcion.html')

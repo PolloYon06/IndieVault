@@ -1,0 +1,18 @@
+{% extends 'base.html' %}
+
+{% block title %}Suscripción · IndieVault{% endblock %}
+
+{% block content %}
+    <section class="subscribe" aria-labelledby="page-title">
+        <p class="eyebrow">Club IndieVault</p>
+        <h1 id="page-title">Nuevas ideas <span>cada semana</span></h1>
+        <p class="hero-copy">Suscríbete y recibe en tu correo una selección de juegos independientes que vale la pena probar.</p>
+
+        <form class="subscribe-form" method="get" action=".">
+            <label class="sr-only" for="suscripcion-email">Tu correo</label>
+            <input id="suscripcion-email" name="email" type="email" placeholder="tu@correo.com" required>
+            <button class="button" type="submit">Suscribirme <span aria-hidden="true">↗</span></button>
+        </form>
+        <p class="subscribe-note">Sin spam. Date de baja cuando quieras.</p>
+    </section>
+{% endblock %}

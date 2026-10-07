@@ -19,6 +19,7 @@
             <a href="{% url 'index' %}"{% if request.resolver_match.url_name == 'index' %} class="active" aria-current="page"{% endif %}>Inicio</a>
             <a href="{% url 'explorar' %}"{% if request.resolver_match.url_name == 'explorar' %} class="active" aria-current="page"{% endif %}>Explorar</a>
             <a class="library{% if request.resolver_match.url_name == 'biblioteca' %} active{% endif %}" href="{% url 'biblioteca' %}"{% if request.resolver_match.url_name == 'biblioteca' %} aria-current="page"{% endif %}>Biblioteca</a>
+            <a href="{% url 'suscripcion' %}"{% if request.resolver_match.url_name == 'suscripcion' %} class="active" aria-current="page"{% endif %}>Suscripción</a>
         </nav>
     </header>
 
