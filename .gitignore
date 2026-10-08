@@ -4,6 +4,7 @@ db.sqlite3
 .env
 indieEnv/
 staticfiles/
+graphify-out/
 
 # Local tooling / OS
 .vscode/
