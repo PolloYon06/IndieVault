@@ -1,6 +1,8 @@
 from django.test import Client, TestCase
 from django.urls import reverse
 
+from .models import Game, LibraryEntry
+
 
 class RouteTests(TestCase):
     def setUp(self):
@@ -44,6 +46,58 @@ class RouteTests(TestCase):
 
     def test_unknown_route_returns_404(self):
         self.assertEqual(self.client.get('/no-existe/').status_code, 404)
+
+    def test_404_page_is_themed(self):
+        response = self.client.get('/ruta-inexistente/')
+        self.assertEqual(response.status_code, 404)
+        self.assertTemplateUsed(response, '404.html')
+        self.assertContains(response, 'Página perdida en el vacío', status_code=404)
+
+
+class DetailTests(TestCase):
+    def setUp(self):
+        self.client = Client()
+
+    def test_game_detail(self):
+        game = Game.objects.first()
+        response = self.client.get(reverse('game_detail', args=[game.slug]))
+        self.assertEqual(response.status_code, 200)
+        self.assertTemplateUsed(response, 'game_detail.html')
+        self.assertContains(response, game.title)
+        self.assertContains(response, game.studio)
+
+    def test_game_detail_unknown_slug_404(self):
+        self.assertEqual(self.client.get('/juego/no-existe/').status_code, 404)
+
+    def test_detail_related_games(self):
+        game = Game.objects.exclude(genres='').first()
+        response = self.client.get(reverse('game_detail', args=[game.slug]))
+        self.assertContains(response, 'Comparten género')
+
+
+class LibraryTests(TestCase):
+    def setUp(self):
+        self.client = Client()
+
+    def test_catalog_shows_add_and_remove(self):
+        game = Game.objects.first()
+        LibraryEntry.objects.filter(game=game).delete()
+        html = self.client.get(reverse('explorar')).content.decode()
+        self.assertIn('Añadir a biblioteca', html)
+        self.assertIn('Quitar de la biblioteca', html)
+
+    def test_remove_then_add_to_library(self):
+        game = Game.objects.first()
+        self.client.post(reverse('remove_from_library', args=[game.pk]))
+        self.assertEqual(LibraryEntry.objects.filter(game=game).count(), 0)
+        self.client.post(reverse('add_to_library', args=[game.pk]))
+        self.assertEqual(LibraryEntry.objects.filter(game=game).count(), 1)
+
+    def test_add_does_not_duplicate(self):
+        game = Game.objects.first()
+        self.client.post(reverse('add_to_library', args=[game.pk]))
+        self.client.post(reverse('add_to_library', args=[game.pk]))
+        self.assertEqual(LibraryEntry.objects.filter(game=game).count(), 1)
 
 
 class FilterTests(TestCase):

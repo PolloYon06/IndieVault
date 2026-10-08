@@ -9,6 +9,17 @@
     --lilac: #c2a8ff;
 }
 
+:root[data-theme="light"] {
+    color-scheme: light;
+    --ink: #14151f;
+    --muted: #60687f;
+    --night: #f3f4f9;
+    --panel: #ffffff;
+    --line: rgba(20, 25, 50, 0.14);
+    --lime: #65860a;
+    --lilac: #6a45c9;
+}
+
 * { box-sizing: border-box; }
 
 html { scroll-behavior: smooth; }
@@ -108,6 +119,24 @@ a:focus-visible {
 
 .site-nav a.active { color: var(--lime); }
 .site-nav a.library.active { color: var(--lilac); }
+
+.theme-toggle {
+    display: grid;
+    place-items: center;
+    width: 34px;
+    height: 34px;
+    padding: 0;
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    background: var(--panel);
+    color: var(--ink);
+    font-size: 0.9rem;
+    cursor: pointer;
+    transition: border-color 180ms ease, transform 180ms ease;
+}
+
+.theme-toggle:hover { border-color: var(--lime); }
+.theme-toggle:active { transform: scale(0.94); }
 
 /* Portada */
 
@@ -415,8 +444,12 @@ a.chip { display: inline-block; text-decoration: none; }
     background: linear-gradient(150deg, var(--tint, rgba(214, 243, 106, 0.22)), transparent 70%);
     color: var(--ink);
     font-size: 2rem;
+    text-decoration: none;
     opacity: 0.9;
+    transition: opacity 180ms ease;
 }
+
+.cover:hover { opacity: 1; }
 
 .game-body { padding: 20px; }
 
@@ -425,6 +458,9 @@ a.chip { display: inline-block; text-decoration: none; }
     font-size: 1.06rem;
     letter-spacing: -0.04em;
 }
+
+.game-body h3 a { text-decoration: none; }
+.game-body h3 a:hover { color: var(--lime); }
 
 .game-meta {
     margin: 0 0 14px;
@@ -588,6 +624,122 @@ a.chip { display: inline-block; text-decoration: none; }
 }
 
 .button.library:hover { background: rgba(194, 168, 255, 0.09); }
+
+.library-action { margin-top: 14px; }
+
+.game-card .button {
+    width: 100%;
+    justify-content: center;
+    padding: 9px 12px;
+    font-size: 0.78rem;
+}
+
+.button.add { border-color: var(--lime); }
+
+.button.remove.button {
+    border-color: var(--line);
+    color: var(--muted);
+}
+
+.button.remove.button:hover { background: rgba(255, 88, 88, 0.08); color: #ff6b6b; }
+
+/* Página de detalle */
+
+.detail {
+    padding: clamp(48px, 7vw, 88px) 0 clamp(70px, 9vw, 110px);
+}
+
+.back-link {
+    display: inline-block;
+    margin-bottom: 28px;
+    color: var(--muted);
+    font-size: 0.82rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-decoration: none;
+    text-transform: uppercase;
+}
+
+.back-link:hover { color: var(--lime); }
+
+.detail-layout {
+    display: grid;
+    grid-template-columns: 300px 1fr;
+    gap: clamp(28px, 5vw, 56px);
+    align-items: start;
+}
+
+.detail-cover {
+    aspect-ratio: 3 / 4;
+    display: grid;
+    place-items: center;
+    border: 1px solid var(--line);
+    border-radius: 22px;
+    background: linear-gradient(150deg, var(--tint, rgba(214, 243, 106, 0.22)), transparent 70%);
+    font-size: clamp(3.4rem, 8vw, 5rem);
+}
+
+.detail-info h1 {
+    margin: 0 0 6px;
+    font-size: clamp(1.9rem, 4.5vw, 3rem);
+    letter-spacing: -0.055em;
+}
+
+.detail-studio {
+    margin: 0 0 22px;
+    color: var(--muted);
+    font-size: 0.8rem;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+}
+
+.detail-price {
+    margin: 0 0 20px;
+    font-size: 1.5rem;
+    font-weight: 800;
+    letter-spacing: -0.04em;
+}
+
+.detail-price.free { color: var(--lime); }
+
+.detail-tags { margin-bottom: 28px; }
+
+.detail-actions .button { padding: 13px 26px; }
+
+/* 404 */
+
+.error-page {
+    min-height: 62vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    text-align: center;
+    padding: 90px 0 120px;
+}
+
+.error-symbol {
+    font-size: 6rem;
+    line-height: 1;
+    background: linear-gradient(120deg, var(--lime), var(--lilac));
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+}
+
+.error-page h1 {
+    margin: 14px 0 0;
+    font-size: clamp(1.8rem, 5vw, 2.6rem);
+    letter-spacing: -0.055em;
+}
+
+.error-page p {
+    margin: 0 0 30px;
+    color: var(--muted);
+    line-height: 1.7;
+}
 
 .subscribe {
     padding: clamp(52px, 8vw, 96px) 0 clamp(70px, 9vw, 110px);

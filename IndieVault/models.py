@@ -3,6 +3,7 @@ from django.db import models
 
 class Game(models.Model):
     title = models.CharField(max_length=120)
+    slug = models.SlugField(max_length=140, unique=True, blank=True)
     studio = models.CharField(max_length=120)
     year = models.PositiveIntegerField(default=0)
     genres = models.CharField(max_length=255, blank=True)

@@ -1,0 +1,55 @@
+{% extends 'base.html' %}
+
+{% block title %}{{ game.title }} · IndieVault{% endblock %}
+
+{% block content %}
+    <section class="detail" aria-labelledby="detail-title">
+        <a class="back-link" href="{% url 'explorar' %}">← Volver a Explorar</a>
+
+        <div class="detail-layout">
+            <div class="detail-cover" style="--tint: {{ game.tint }}" aria-hidden="true">{{ game.symbol }}</div>
+            <div class="detail-info">
+                <h1 id="detail-title">{{ game.title }}</h1>
+                <p class="detail-studio">{{ game.studio }} · {{ game.year }}</p>
+                <p class="detail-price{% if game.is_free %} free{% endif %}">{% if game.is_free %}Gratis{% else %}${{ game.price|stringformat:'.2f' }}{% endif %}</p>
+                <div class="tags detail-tags">
+                    {% for tag in game.genre_list %}<span class="tag">{{ tag }}</span>{% endfor %}
+                </div>
+
+                <div class="detail-actions">
+                    {% if in_library %}
+                        <form class="library-action" method="post" action="{% url 'remove_from_library' game.id %}">
+                            {% csrf_token %}
+                            <button class="button remove" type="submit">Quitar de la biblioteca</button>
+                        </form>
+                    {% else %}
+                        <form class="library-action" method="post" action="{% url 'add_to_library' game.id %}">
+                            {% csrf_token %}
+                            <button class="button add" type="submit">Añadir a la biblioteca</button>
+                        </form>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </section>
+
+    {% if related %}
+        <section class="page-shell" aria-labelledby="related-title">
+            <div class="results-count">Comparten género</div>
+            <div class="game-grid">
+                {% for g in related %}
+                    <article class="game-card">
+                        <a class="cover" href="{% url 'game_detail' g.slug %}" style="--tint: {{ g.tint }}" aria-label="{{ g.title }}">
+                            {{ g.symbol }}
+                        </a>
+                        <div class="game-body">
+                            <h3><a href="{% url 'game_detail' g.slug %}">{{ g.title }}</a></h3>
+                            <p class="game-meta">{{ g.studio }} · {{ g.year }}</p>
+                            <p class="price{% if g.is_free %} free{% endif %}">{% if g.is_free %}Gratis{% else %}${{ g.price|stringformat:'.2f' }}{% endif %}</p>
+                        </div>
+                    </article>
+                {% endfor %}
+            </div>
+        </section>
+    {% endif %}
+{% endblock %}

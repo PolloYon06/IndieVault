@@ -5,3 +5,5 @@ urlpatterns = [
     path('admin/', admin.site.urls),
     path('', include('IndieVault.urls')),
 ]
+
+handler404 = 'IndieVault.views.custom_404'

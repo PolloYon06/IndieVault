@@ -1,0 +1,12 @@
+{% extends 'base.html' %}
+
+{% block title %}Página no encontrada · IndieVault{% endblock %}
+
+{% block content %}
+    <section class="error-page" aria-labelledby="error-title">
+        <span class="error-symbol" aria-hidden="true">✕</span>
+        <h1 id="error-title">Página perdida en el vacío</h1>
+        <p>Ese rincón aún no existe en IndieVault. Mejor vuelve a casa.</p>
+        <a class="button" href="{% url 'index' %}">Volver al inicio <span aria-hidden="true">↗</span></a>
+    </section>
+{% endblock %}

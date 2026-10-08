@@ -44,14 +44,27 @@
         <div class="game-grid">
             {% for game in games %}
                 <article class="game-card">
-                    <div class="cover" style="--tint: {{ game.tint }}" aria-hidden="true">{{ game.symbol }}</div>
+                    <a class="cover" href="{% url 'game_detail' game.slug %}" style="--tint: {{ game.tint }}" aria-label="{{ game.title }}">
+                        {{ game.symbol }}
+                    </a>
                     <div class="game-body">
-                        <h3>{{ game.title }}</h3>
+                        <h3><a href="{% url 'game_detail' game.slug %}">{{ game.title }}</a></h3>
                         <p class="game-meta">{{ game.studio }} · {{ game.year }}</p>
                         <p class="price{% if game.is_free %} free{% endif %}">{% if game.is_free %}Gratis{% else %}${{ game.price|stringformat:'.2f' }}{% endif %}</p>
                         <div class="tags">
                             {% for tag in game.genre_list %}<span class="tag">{{ tag }}</span>{% endfor %}
                         </div>
+                        {% if game.id in in_library %}
+                            <form class="library-action" method="post" action="{% url 'remove_from_library' game.id %}">
+                                {% csrf_token %}
+                                <button class="button remove" type="submit">Quitar de la biblioteca</button>
+                            </form>
+                        {% else %}
+                            <form class="library-action" method="post" action="{% url 'add_to_library' game.id %}">
+                                {% csrf_token %}
+                                <button class="button add" type="submit">Añadir a biblioteca</button>
+                            </form>
+                        {% endif %}
                     </div>
                 </article>
             {% empty %}

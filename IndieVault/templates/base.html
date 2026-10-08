@@ -7,7 +7,13 @@
     <meta name="theme-color" content="#11110f">
     <meta name="description" content="IndieVault: descubre juegos independientes o explora tu biblioteca personal.">
     <title>{% block title %}IndieVault — encuentra tu próximo mundo{% endblock %}</title>
+    <link rel="icon" type="image/png" href="{% static 'img/logo.png' %}">
     <link rel="stylesheet" href="{% static 'css/indievault.css' %}">
+    <script>
+        const root = document.documentElement;
+        const saved = localStorage.getItem('iv-theme');
+        if (saved) root.dataset.theme = saved;
+    </script>
 </head>
 <body>
     <header class="site-header" id="inicio">
@@ -20,6 +26,7 @@
             <a href="{% url 'explorar' %}"{% if request.resolver_match.url_name == 'explorar' %} class="active" aria-current="page"{% endif %}>Explorar</a>
             <a class="library{% if request.resolver_match.url_name == 'biblioteca' %} active{% endif %}" href="{% url 'biblioteca' %}"{% if request.resolver_match.url_name == 'biblioteca' %} aria-current="page"{% endif %}>Biblioteca</a>
             <a href="{% url 'suscripcion' %}"{% if request.resolver_match.url_name == 'suscripcion' %} class="active" aria-current="page"{% endif %}>Suscripción</a>
+            <button id="theme-toggle" type="button" class="theme-toggle" aria-label="Cambiar tema claro/oscuro" title="Cambiar tema claro/oscuro"></button>
         </nav>
     </header>
 
@@ -30,5 +37,22 @@
     <footer class="site-footer">
         IndieVault · Hecho para quienes buscan algo distinto.
     </footer>
+
+    <script>
+        const toggle = document.getElementById('theme-toggle');
+        const metaTheme = document.querySelector('meta[name="theme-color"]');
+        const applyTheme = () => {
+            const light = root.dataset.theme === 'light';
+            toggle.textContent = light ? '☾' : '☀';
+            toggle.setAttribute('aria-pressed', light ? 'false' : 'true');
+            if (metaTheme) metaTheme.content = light ? '#f4f4f8' : '#11110f';
+        };
+        toggle.addEventListener('click', () => {
+            root.dataset.theme = root.dataset.theme === 'light' ? 'dark' : 'light';
+            localStorage.setItem('iv-theme', root.dataset.theme);
+            applyTheme();
+        });
+        applyTheme();
+    </script>
 </body>
 </html>
