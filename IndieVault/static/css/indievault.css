@@ -120,6 +120,32 @@ a:focus-visible {
 .site-nav a.active { color: var(--lime); }
 .site-nav a.library.active { color: var(--lilac); }
 
+.nav-user {
+    max-width: 120px;
+    overflow: hidden;
+    color: var(--ink);
+    font-size: 0.86rem;
+    font-weight: 650;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.nav-logout { margin: 0; }
+
+.nav-logout button {
+    padding: 0;
+    border: 0;
+    background: none;
+    color: var(--muted);
+    font: inherit;
+    font-size: 0.86rem;
+    font-weight: 650;
+    cursor: pointer;
+    transition: color 180ms ease;
+}
+
+.nav-logout button:hover { color: #ff6b6b; }
+
 .theme-toggle {
     display: grid;
     place-items: center;
@@ -940,9 +966,11 @@ a.chip { display: inline-block; text-decoration: none; }
 
 @media (max-width: 640px) {
     .site-header, main, .site-footer { width: min(100% - 32px, 520px); }
-    .site-header { min-height: 72px; }
-    .site-nav { gap: 16px; }
+    .site-header { min-height: 72px; flex-wrap: wrap; padding-block: 14px; }
+    .site-nav { gap: 14px 18px; flex-wrap: wrap; justify-content: flex-end; }
     .site-nav a { font-size: 0.78rem; }
+    .nav-logout button { font-size: 0.78rem; }
+    .nav-user { display: none; }
     .hero { padding: 78px 0 62px; }
     .choices { grid-template-columns: 1fr; }
     .choice-card { min-height: 225px; padding: 25px; }
@@ -958,4 +986,117 @@ a.chip { display: inline-block; text-decoration: none; }
         scroll-behavior: auto !important;
         transition-duration: 0.01ms !important;
     }
+}
+/* Mensajes del sistema */
+
+.messages {
+    display: grid;
+    gap: 10px;
+    margin-top: 22px;
+}
+
+.message {
+    margin: 0;
+    padding: 12px 16px;
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    background: rgba(214, 243, 106, 0.06);
+    color: var(--ink);
+    font-size: 0.86rem;
+}
+
+.message.error {
+    border-color: rgba(255, 88, 88, 0.35);
+    background: rgba(255, 88, 88, 0.08);
+}
+
+/* Panel de empresa */
+
+.studio-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 18px;
+    margin-bottom: 24px;
+    padding-bottom: 18px;
+    border-bottom: 1px solid var(--line);
+}
+
+.studio-bar .results-count { margin: 0; }
+
+.studio-link {
+    color: var(--muted);
+    font-size: 0.82rem;
+    text-decoration: none;
+}
+
+.studio-link:hover { color: var(--lilac); }
+
+/* Formularios de estudio */
+
+.studio-form {
+    display: grid;
+    gap: 18px;
+    max-width: 640px;
+    padding: 26px;
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 18px;
+}
+
+.form-field { display: grid; gap: 7px; }
+
+.form-field label {
+    font-size: 0.84rem;
+    font-weight: 650;
+}
+
+.form-field input,
+.form-field textarea,
+.form-field select {
+    width: 100%;
+    padding: 11px 14px;
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    background: rgba(255, 255, 255, 0.03);
+    color: var(--ink);
+    font: inherit;
+    font-size: 0.92rem;
+}
+
+:root[data-theme="light"] .form-field input,
+:root[data-theme="light"] .form-field textarea,
+:root[data-theme="light"] .form-field select { background: #f7f8fb; }
+
+.form-field input:focus,
+.form-field textarea:focus,
+.form-field select:focus {
+    outline: none;
+    border-color: var(--lime);
+    box-shadow: 0 0 0 3px rgba(214, 243, 106, 0.12);
+}
+
+.form-field textarea { min-height: 110px; resize: vertical; }
+
+.form-help { margin: 0; color: var(--muted); font-size: 0.78rem; }
+.form-error { margin: 0; color: #ff8080; font-size: 0.8rem; }
+
+.form-actions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 12px;
+    margin-top: 6px;
+}
+
+.detail-description {
+    max-width: 620px;
+    margin: 18px 0 0;
+    color: var(--muted);
+    line-height: 1.7;
+}
+
+@media (max-width: 640px) {
+    .studio-bar { flex-direction: column; align-items: flex-start; }
+    .studio-form { padding: 20px; }
 }

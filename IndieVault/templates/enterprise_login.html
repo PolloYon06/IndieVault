@@ -1,0 +1,43 @@
+{% extends 'auth_base.html' %}
+
+{% block title %}Acceso para empresas · IndieVault{% endblock %}
+
+{% block auth_heading %}<h1>Acceso para empresas</h1>{% endblock %}
+{% block auth_subtitle %}
+    <p>Publica y gestiona tus juegos en IndieVault.</p>
+{% endblock %}
+
+{% block auth_content %}
+    <form method="post" action="{% url 'enterprise_login' %}" novalidate>
+        {% csrf_token %}
+
+        <div class="mb-3">
+            <label class="form-label" for="id_username">Usuario</label>
+            <input class="form-control" type="text" name="username" id="id_username"
+                   value="{{ form.username.value|default:'' }}"
+                   autocomplete="username" autocapitalize="none" required autofocus>
+            {% for error in form.username.errors %}
+                <div class="field-error">{{ error }}</div>
+            {% endfor %}
+        </div>
+
+        <div class="mb-4">
+            <label class="form-label" for="id_password">Contraseña</label>
+            <input class="form-control" type="password" name="password" id="id_password"
+                   autocomplete="current-password" required>
+            {% for error in form.password.errors %}
+                <div class="field-error">{{ error }}</div>
+            {% endfor %}
+        </div>
+
+        <button class="btn btn-iv btn-iv-enterprise w-100" type="submit">Entrar al panel de empresa</button>
+    </form>
+{% endblock %}
+
+{% block auth_links %}
+    <div class="auth-links">
+        <a href="{% url 'enterprise_register' %}">Crear cuenta de empresa</a>
+        <span class="auth-sep">·</span>
+        <a href="{% url 'login' %}">Soy jugador</a>
+    </div>
+{% endblock %}

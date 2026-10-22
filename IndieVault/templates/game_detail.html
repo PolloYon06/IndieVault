@@ -12,21 +12,28 @@
                 <h1 id="detail-title">{{ game.title }}</h1>
                 <p class="detail-studio">{{ game.studio }} · {{ game.year }}</p>
                 <p class="detail-price{% if game.is_free %} free{% endif %}">{% if game.is_free %}Gratis{% else %}${{ game.price|stringformat:'.2f' }}{% endif %}</p>
+                {% if game.description %}
+                    <p class="detail-description">{{ game.description }}</p>
+                {% endif %}
                 <div class="tags detail-tags">
                     {% for tag in game.genre_list %}<span class="tag">{{ tag }}</span>{% endfor %}
                 </div>
 
                 <div class="detail-actions">
-                    {% if in_library %}
-                        <form class="library-action" method="post" action="{% url 'remove_from_library' game.id %}">
-                            {% csrf_token %}
-                            <button class="button remove" type="submit">Quitar de la biblioteca</button>
-                        </form>
+                    {% if user.is_authenticated %}
+                        {% if in_library %}
+                            <form class="library-action" method="post" action="{% url 'remove_from_library' game.id %}">
+                                {% csrf_token %}
+                                <button class="button remove" type="submit">Quitar de la biblioteca</button>
+                            </form>
+                        {% else %}
+                            <form class="library-action" method="post" action="{% url 'add_to_library' game.id %}">
+                                {% csrf_token %}
+                                <button class="button add" type="submit">Añadir a la biblioteca</button>
+                            </form>
+                        {% endif %}
                     {% else %}
-                        <form class="library-action" method="post" action="{% url 'add_to_library' game.id %}">
-                            {% csrf_token %}
-                            <button class="button add" type="submit">Añadir a la biblioteca</button>
-                        </form>
+                        <a class="button add" href="{% url 'login' %}?next={{ request.get_full_path|urlencode }}">Inicia sesión para guardar</a>
                     {% endif %}
                 </div>
             </div>

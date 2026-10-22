@@ -1,0 +1,39 @@
+{% extends 'base.html' %}
+
+{% block title %}Publicar juego · {{ enterprise.studio_name }}{% endblock %}
+
+{% block content %}
+    <section class="page-head" aria-labelledby="publish-title">
+        <p class="eyebrow library">Panel de empresa</p>
+        <h1 id="publish-title">Publicar un <span class="lilac">juego</span></h1>
+        <p class="hero-copy">Completa la ficha. Se publicará en el catálogo bajo el nombre de {{ enterprise.studio_name }}.</p>
+    </section>
+
+    <section class="page-shell" aria-label="Formulario de publicación">
+        <form class="studio-form" method="post" novalidate>
+            {% csrf_token %}
+
+            {% for field in form %}
+                <div class="form-field">
+                    <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+                    {{ field }}
+                    {% for error in field.errors %}
+                        <p class="form-error">{{ error }}</p>
+                    {% endfor %}
+                    {% if field.help_text %}
+                        <p class="form-help">{{ field.help_text }}</p>
+                    {% endif %}
+                </div>
+            {% endfor %}
+
+            {% for error in form.non_field_errors %}
+                <p class="form-error">{{ error }}</p>
+            {% endfor %}
+
+            <div class="form-actions">
+                <button class="button" type="submit">Publicar juego</button>
+                <a class="button remove" href="{% url 'enterprise_dashboard' %}">Cancelar</a>
+            </div>
+        </form>
+    </section>
+{% endblock %}

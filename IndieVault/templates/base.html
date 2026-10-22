@@ -26,11 +26,32 @@
             <a href="{% url 'explorar' %}"{% if request.resolver_match.url_name == 'explorar' %} class="active" aria-current="page"{% endif %}>Explorar</a>
             <a class="library{% if request.resolver_match.url_name == 'biblioteca' %} active{% endif %}" href="{% url 'biblioteca' %}"{% if request.resolver_match.url_name == 'biblioteca' %} aria-current="page"{% endif %}>Biblioteca</a>
             <a href="{% url 'suscripcion' %}"{% if request.resolver_match.url_name == 'suscripcion' %} class="active" aria-current="page"{% endif %}>Suscripción</a>
+            {% if user.is_authenticated %}
+                {% if user.is_staff %}
+                    <a href="{% url 'admin:index' %}">Admin</a>
+                {% elif user.enterprise %}
+                    <a href="{% url 'enterprise_dashboard' %}"{% if request.resolver_match.url_name == 'enterprise_dashboard' %} class="active" aria-current="page"{% endif %}>Mi estudio</a>
+                {% endif %}
+                <span class="nav-user" title="{{ user.username }}">{{ user.username }}</span>
+                <form class="nav-logout" method="post" action="{% url 'logout' %}">
+                    {% csrf_token %}
+                    <button type="submit">Salir</button>
+                </form>
+            {% else %}
+                <a href="{% url 'login' %}"{% if request.resolver_match.url_name == 'login' %} class="active" aria-current="page"{% endif %}>Iniciar sesión</a>
+            {% endif %}
             <button id="theme-toggle" type="button" class="theme-toggle" aria-label="Cambiar tema claro/oscuro" title="Cambiar tema claro/oscuro"></button>
         </nav>
     </header>
 
     <main>
+        {% if messages %}
+            <div class="messages" role="status" aria-live="polite">
+                {% for message in messages %}
+                    <p class="message {{ message.tags }}">{{ message }}</p>
+                {% endfor %}
+            </div>
+        {% endif %}
         {% block content %}{% endblock %}
     </main>
 

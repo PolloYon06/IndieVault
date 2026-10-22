@@ -130,6 +130,14 @@ AUTH_PASSWORD_VALIDATORS = [
 ]
 
 
+# Authentication
+# https://docs.djangoproject.com/en/6.1/topics/auth/default/#module-django.contrib.auth.views
+
+LOGIN_URL = 'login'
+LOGIN_REDIRECT_URL = 'index'
+LOGOUT_REDIRECT_URL = 'index'
+
+
 # Internationalization
 # https://docs.djangoproject.com/en/6.1/topics/i18n/
 

@@ -1,0 +1,47 @@
+{% extends 'base.html' %}
+
+{% block title %}Panel de {{ enterprise.studio_name }} · IndieVault{% endblock %}
+
+{% block content %}
+    <section class="page-head" aria-labelledby="studio-title">
+        <p class="eyebrow library">Panel de empresa</p>
+        <h1 id="studio-title">{{ enterprise.studio_name }}</h1>
+        <p class="hero-copy">Publica y gestiona los juegos de tu estudio. Lo que publiques aparecerá en Explorar.</p>
+    </section>
+
+    <section class="page-shell" aria-label="Juegos publicados">
+        <div class="studio-bar">
+            <div>
+                <p class="results-count">{{ published_count }} juego{{ published_count|pluralize }} publicado{{ published_count|pluralize }}</p>
+                {% if enterprise.website %}
+                    <a class="studio-link" href="{{ enterprise.website }}" target="_blank" rel="noopener">{{ enterprise.website }}</a>
+                {% endif %}
+            </div>
+            <a class="button" href="{% url 'enterprise_publish' %}">+ Publicar juego</a>
+        </div>
+
+        <div class="game-grid">
+            {% for game in games %}
+                <article class="game-card">
+                    <a class="cover" href="{% url 'game_detail' game.slug %}" style="--tint: {{ game.tint }}" aria-label="{{ game.title }}">
+                        {{ game.symbol }}
+                    </a>
+                    <div class="game-body">
+                        <h3><a href="{% url 'game_detail' game.slug %}">{{ game.title }}</a></h3>
+                        <p class="game-meta">{{ game.studio }} · {{ game.year }}</p>
+                        <p class="price{% if game.is_free %} free{% endif %}">{% if game.is_free %}Gratis{% else %}${{ game.price|stringformat:'.2f' }}{% endif %}</p>
+                        <div class="tags">
+                            {% for tag in game.genre_list %}<span class="tag">{{ tag }}</span>{% endfor %}
+                        </div>
+                    </div>
+                </article>
+            {% empty %}
+                <div class="empty-state no-results">
+                    <h2>Tu estudio aún no tiene juegos</h2>
+                    <p>Publica tu primer juego y aparecerá en el catálogo de IndieVault.</p>
+                    <a class="button" href="{% url 'enterprise_publish' %}">Publicar mi primer juego</a>
+                </div>
+            {% endfor %}
+        </div>
+    </section>
+{% endblock %}
