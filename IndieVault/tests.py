@@ -3,6 +3,7 @@ from django.test import Client, TestCase
 from django.urls import reverse
 
 from .models import Enterprise, Game, LibraryEntry
+from .stats import admin_stats, user_stats
 
 
 class RouteTests(TestCase):
@@ -486,3 +487,84 @@ class GameSlugTests(TestCase):
         second = Game.objects.create(title='Mismo Título', studio='Dos')
         self.assertEqual(first.slug, 'mismo-titulo')
         self.assertEqual(second.slug, 'mismo-titulo-2')
+
+
+class StatsTests(TestCase):
+    def setUp(self):
+        self.user = get_user_model().objects.create_user(
+            username='stats', password='clave-stats-123'
+        )
+        self.admin = get_user_model().objects.create_user(
+            username='statsadmin', password='clave-admin-123', is_staff=True
+        )
+        LibraryEntry.objects.create(
+            user=self.user,
+            game=Game.objects.first(),
+            status=LibraryEntry.Status.DONE,
+        )
+
+    def test_user_stats_requires_login(self):
+        response = self.client.get(reverse('estadisticas'))
+        self.assertEqual(response.status_code, 302)
+        self.assertIn(reverse('login'), response.url)
+
+    def test_user_stats_renders_four_charts(self):
+        self.client.force_login(self.user)
+        response = self.client.get(reverse('estadisticas'))
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'Tus estadísticas')
+        self.assertContains(response, 'Mi biblioteca por estado')
+        self.assertContains(response, 'Mis géneros más guardados')
+        self.assertContains(response, 'Mi progreso')
+        self.assertContains(response, 'Mi cobertura del catálogo')
+
+    def test_user_stats_empty_state(self):
+        empty = get_user_model().objects.create_user(
+            username='vacio', password='clave-vacio-123'
+        )
+        self.client.force_login(empty)
+        response = self.client.get(reverse('estadisticas'))
+        self.assertContains(response, 'Aún no has guardado ningún juego')
+
+    def test_user_stats_values(self):
+        stats = user_stats(self.user)
+        self.assertEqual(stats['charts'][0]['values'], [0, 0, 1])
+        self.assertEqual(stats['charts'][3]['values'][0], 1)
+        self.assertEqual(stats['coverage'], round(100 / Game.objects.count()))
+
+    def test_admin_stats_requires_staff(self):
+        self.client.force_login(self.user)
+        response = self.client.get(reverse('estadisticas_admin'))
+        self.assertEqual(response.status_code, 403)
+
+    def test_admin_stats_requires_login(self):
+        response = self.client.get(reverse('estadisticas_admin'))
+        self.assertEqual(response.status_code, 302)
+        self.assertIn(reverse('login'), response.url)
+
+    def test_admin_stats_renders_four_charts(self):
+        self.client.force_login(self.admin)
+        response = self.client.get(reverse('estadisticas_admin'))
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'Métricas de IndieVault')
+        self.assertContains(response, 'Juegos por género')
+        self.assertContains(response, 'Gratis vs pagos')
+        self.assertContains(response, 'Biblioteca global por estado')
+        self.assertContains(response, 'Nuevos usuarios por mes')
+
+    def test_admin_stats_values(self):
+        stats = admin_stats()
+        price_chart = stats['charts'][1]
+        self.assertEqual(sum(price_chart['values']), Game.objects.count())
+        users_chart = stats['charts'][3]
+        self.assertEqual(len(users_chart['labels']), 6)
+        self.assertEqual(len(users_chart['values']), 6)
+
+    def test_nav_links_to_stats(self):
+        self.client.force_login(self.user)
+        response = self.client.get(reverse('index'))
+        self.assertContains(response, reverse('estadisticas'))
+
+        self.client.force_login(self.admin)
+        response = self.client.get(reverse('index'))
+        self.assertContains(response, reverse('estadisticas_admin'))

@@ -1100,3 +1100,65 @@ a.chip { display: inline-block; text-decoration: none; }
     .studio-bar { flex-direction: column; align-items: flex-start; }
     .studio-form { padding: 20px; }
 }
+
+/* Estadísticas */
+
+.stats-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 20px;
+}
+
+.stat-card {
+    min-width: 0;
+    padding: 22px 24px;
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 18px;
+}
+
+.stat-head h2 {
+    margin: 0 0 4px;
+    font-size: 1rem;
+    letter-spacing: -0.01em;
+}
+
+.stat-head p {
+    margin: 0 0 18px;
+    color: var(--muted);
+    font-size: 0.8rem;
+}
+
+.chart-box {
+    position: relative;
+    height: 240px;
+}
+
+.chart-box.gauge .gauge-value {
+    position: absolute;
+    inset: 0;
+    display: grid;
+    place-items: center;
+    font-size: clamp(1.8rem, 4vw, 2.4rem);
+    font-weight: 750;
+    letter-spacing: -0.04em;
+    pointer-events: none;
+}
+
+.chart-empty {
+    display: grid;
+    place-items: center;
+    min-height: 240px;
+    margin: 0;
+    padding: 20px;
+    border: 1px dashed var(--line);
+    border-radius: 14px;
+    color: var(--muted);
+    font-size: 0.86rem;
+    text-align: center;
+}
+
+@media (max-width: 760px) {
+    .stats-grid { grid-template-columns: 1fr; }
+    .stat-card { padding: 20px; }
+}

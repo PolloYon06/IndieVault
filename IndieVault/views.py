@@ -5,6 +5,7 @@ from django.contrib.auth import login as auth_login
 from django.contrib.auth import logout as auth_logout
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.forms import AuthenticationForm
+from django.core.exceptions import PermissionDenied
 from django.db.models import Q
 from django.http import HttpResponseRedirect
 from django.shortcuts import get_object_or_404, redirect, render
@@ -14,6 +15,7 @@ from django.views.decorators.http import require_POST
 
 from .forms import EnterpriseSignupForm, GameForm
 from .models import Game, LibraryEntry
+from .stats import admin_stats, user_stats
 
 
 def index(request):
@@ -150,6 +152,20 @@ def biblioteca(request):
 
 def suscripcion(request):
     return render(request, 'suscripcion.html')
+
+
+@login_required
+def estadisticas(request):
+    """Panel personal con cuatro gráficos de la biblioteca del usuario."""
+    return render(request, 'estadisticas.html', user_stats(request.user))
+
+
+@login_required
+def estadisticas_admin(request):
+    """Métricas globales, solo para personal de IndieVault."""
+    if not request.user.is_staff:
+        raise PermissionDenied
+    return render(request, 'estadisticas.html', admin_stats())
 
 
 def _has_enterprise(user):

@@ -29,8 +29,12 @@
             {% if user.is_authenticated %}
                 {% if user.is_staff %}
                     <a href="{% url 'admin:index' %}">Admin</a>
-                {% elif user.enterprise %}
-                    <a href="{% url 'enterprise_dashboard' %}"{% if request.resolver_match.url_name == 'enterprise_dashboard' %} class="active" aria-current="page"{% endif %}>Mi estudio</a>
+                    <a href="{% url 'estadisticas_admin' %}"{% if request.resolver_match.url_name == 'estadisticas_admin' %} class="active" aria-current="page"{% endif %}>Métricas</a>
+                {% else %}
+                    {% if user.enterprise %}
+                        <a href="{% url 'enterprise_dashboard' %}"{% if request.resolver_match.url_name == 'enterprise_dashboard' %} class="active" aria-current="page"{% endif %}>Mi estudio</a>
+                    {% endif %}
+                    <a href="{% url 'estadisticas' %}"{% if request.resolver_match.url_name == 'estadisticas' %} class="active" aria-current="page"{% endif %}>Estadísticas</a>
                 {% endif %}
                 <span class="nav-user" title="{{ user.username }}">{{ user.username }}</span>
                 <form class="nav-logout" method="post" action="{% url 'logout' %}">
