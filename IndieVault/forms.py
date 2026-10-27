@@ -104,3 +104,32 @@ class GameForm(forms.ModelForm):
             'symbol': 'Un emoji o símbolo para la portada.',
             'tint': 'Color o degradado CSS para la portada (opcional).',
         }
+
+
+class AdminGameForm(GameForm):
+    """Ficha completa para que el personal gestione cualquier juego."""
+
+    studio = forms.CharField(max_length=120, label='Estudio')
+    publisher = forms.ModelChoiceField(
+        queryset=Enterprise.objects.all(),
+        required=False,
+        label='Empresa publicadora',
+    )
+
+    class Meta(GameForm.Meta):
+        fields = [
+            'title', 'studio', 'publisher', 'description',
+            'genres', 'year', 'price', 'symbol', 'tint',
+        ]
+
+
+class AdminEnterpriseForm(forms.ModelForm):
+    class Meta:
+        model = Enterprise
+        fields = ['studio_name', 'website', 'description', 'is_verified']
+        widgets = {
+            'description': forms.Textarea(attrs={'rows': 4}),
+        }
+        labels = {
+            'is_verified': 'Empresa verificada',
+        }

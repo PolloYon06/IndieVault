@@ -1,0 +1,72 @@
+{% extends 'panel/base_panel.html' %}
+
+{% block panel_content %}
+<div class="panel-actions">
+    <a class="button ghost" href="{% url 'panel_library_export' %}{% querystring %}">Exportar CSV</a>
+</div>
+
+<form class="panel-filters" method="get" action="{% url 'panel_library' %}">
+    <input class="search-input" type="search" name="q" value="{{ q }}" placeholder="Buscar usuario o juego…" aria-label="Buscar en bibliotecas">
+    <select class="filter-select" name="status" aria-label="Filtrar por estado">
+        <option value=""{% if not status %} selected{% endif %}>Todos los estados</option>
+        {% for value, label in statuses %}
+            <option value="{{ value }}"{% if status == value %} selected{% endif %}>{{ label }}</option>
+        {% endfor %}
+    </select>
+    <button class="button small" type="submit">Filtrar</button>
+    {% if q or status %}
+        <a class="button small ghost" href="{% url 'panel_library' %}">Limpiar</a>
+    {% endif %}
+</form>
+
+<p class="results-count">{{ total }} entrada{{ total|pluralize }} encontrada{{ total|pluralize }}</p>
+
+<div class="panel-table-wrap">
+    <table class="panel-table">
+        <thead>
+            <tr>
+                <th>Usuario</th>
+                <th>Juego</th>
+                <th>Estado</th>
+                <th>Acciones</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for entry in page_obj %}
+                <tr>
+                    <td><strong>{{ entry.user.username }}</strong></td>
+                    <td>
+                        <a href="{% url 'game_detail' entry.game.slug %}">{{ entry.game.title }}</a>
+                        <span class="table-sub">{{ entry.game.studio }}</span>
+                    </td>
+                    <td>
+                        <form class="inline-form" method="post" action="{% url 'panel_library_status' entry.id %}">
+                            {% csrf_token %}
+                            <input type="hidden" name="next" value="{{ request.get_full_path }}">
+                            <select class="inline-select" name="status" aria-label="Estado de {{ entry.game.title }}">
+                                {% for value, label in statuses %}
+                                    <option value="{{ value }}"{% if entry.status == value %} selected{% endif %}>{{ label }}</option>
+                                {% endfor %}
+                            </select>
+                            <button class="button small ghost" type="submit">Guardar</button>
+                        </form>
+                    </td>
+                    <td>
+                        <form method="post" action="{% url 'panel_library_delete' entry.id %}" onsubmit="return confirm('¿Quitar «{{ entry.game.title|escapejs }}» de la biblioteca de {{ entry.user.username|escapejs }}?');">
+                            {% csrf_token %}
+                            <input type="hidden" name="next" value="{{ request.get_full_path }}">
+                            <button class="button small danger" type="submit">Quitar</button>
+                        </form>
+                    </td>
+                </tr>
+            {% empty %}
+                <tr>
+                    <td colspan="4"><p class="panel-empty">No hay entradas con esos filtros.</p></td>
+                </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+{% include 'panel/_pagination.html' %}
+{% endblock %}

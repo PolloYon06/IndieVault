@@ -267,12 +267,12 @@ class AuthTests(TestCase):
         self.assertRedirects(response, reverse('index'))
         self.assertIn('_auth_user_id', self.client.session)
 
-    def test_staff_login_redirects_to_admin(self):
+    def test_staff_login_redirects_to_panel(self):
         response = self.client.post(reverse('login'), {
             'username': 'admin',
             'password': 'clave-admin-123',
         })
-        self.assertRedirects(response, reverse('admin:index'), fetch_redirect_response=False)
+        self.assertRedirects(response, reverse('panel_dashboard'), fetch_redirect_response=False)
 
     def test_enterprise_login_redirects_to_dashboard(self):
         response = self.client.post(reverse('login'), {
@@ -534,19 +534,19 @@ class StatsTests(TestCase):
 
     def test_admin_stats_requires_staff(self):
         self.client.force_login(self.user)
-        response = self.client.get(reverse('estadisticas_admin'))
+        response = self.client.get(reverse('panel_stats'))
         self.assertEqual(response.status_code, 403)
 
     def test_admin_stats_requires_login(self):
-        response = self.client.get(reverse('estadisticas_admin'))
+        response = self.client.get(reverse('panel_stats'))
         self.assertEqual(response.status_code, 302)
         self.assertIn(reverse('login'), response.url)
 
     def test_admin_stats_renders_four_charts(self):
         self.client.force_login(self.admin)
-        response = self.client.get(reverse('estadisticas_admin'))
+        response = self.client.get(reverse('panel_stats'))
         self.assertEqual(response.status_code, 200)
-        self.assertContains(response, 'Métricas de IndieVault')
+        self.assertContains(response, 'Estadísticas')
         self.assertContains(response, 'Juegos por género')
         self.assertContains(response, 'Gratis vs pagos')
         self.assertContains(response, 'Biblioteca global por estado')
@@ -567,4 +567,235 @@ class StatsTests(TestCase):
 
         self.client.force_login(self.admin)
         response = self.client.get(reverse('index'))
-        self.assertContains(response, reverse('estadisticas_admin'))
+        self.assertContains(response, reverse('panel_dashboard'))
+
+
+class PanelTests(TestCase):
+    def setUp(self):
+        User = get_user_model()
+        self.staff = User.objects.create_user(
+            username='staff', password='clave-staff-123', is_staff=True
+        )
+        self.superuser = User.objects.create_superuser(
+            username='super', password='clave-super-123', email='super@example.com'
+        )
+        self.player = User.objects.create_user(
+            username='jugadora', password='clave-jugadora-123'
+        )
+        self.studio_user = User.objects.create_user(
+            username='estudio-panel', password='clave-estudio-123'
+        )
+        self.enterprise = Enterprise.objects.create(
+            user=self.studio_user,
+            studio_name='Estudio Panel',
+            website='https://panel.example.com',
+        )
+        self.game = Game.objects.create(
+            title='Juego de Panel',
+            studio='Estudio Panel',
+            genres='Puzzle, Aventura',
+            year=2024,
+            price=0,
+            publisher=self.enterprise,
+        )
+        self.entry = LibraryEntry.objects.create(
+            user=self.player,
+            game=self.game,
+            status=LibraryEntry.Status.WANT,
+        )
+
+    def test_panel_requires_login(self):
+        response = self.client.get(reverse('panel_dashboard'))
+        self.assertEqual(response.status_code, 302)
+        self.assertIn(reverse('login'), response.url)
+
+    def test_panel_rejects_players(self):
+        self.client.force_login(self.player)
+        for name in [
+            'panel_dashboard', 'panel_games', 'panel_enterprises',
+            'panel_users', 'panel_library', 'panel_stats',
+        ]:
+            response = self.client.get(reverse(name))
+            self.assertEqual(response.status_code, 403, name)
+
+    def test_dashboard_renders_sections(self):
+        self.client.force_login(self.staff)
+        response = self.client.get(reverse('panel_dashboard'))
+        self.assertEqual(response.status_code, 200)
+        self.assertTemplateUsed(response, 'panel/dashboard.html')
+        self.assertContains(response, 'Panel de control')
+        self.assertContains(response, 'Juego de Panel')
+        self.assertContains(response, 'Estudio Panel')
+        self.assertContains(response, reverse('admin:index'))
+
+    def test_game_list_filters(self):
+        self.client.force_login(self.staff)
+        response = self.client.get(reverse('panel_games'), {'q': 'Panel'})
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'Juego de Panel')
+
+        response = self.client.get(reverse('panel_games'), {'price': 'paid'})
+        self.assertNotContains(response, 'Juego de Panel')
+
+    def test_game_create_edit_delete(self):
+        self.client.force_login(self.staff)
+        response = self.client.post(reverse('panel_game_create'), {
+            'title': 'Nuevo Juego',
+            'studio': 'Nuevo Estudio',
+            'publisher': self.enterprise.id,
+            'description': 'Una prueba.',
+            'genres': 'Acción',
+            'year': 2025,
+            'price': '9.99',
+            'symbol': '★',
+            'tint': '',
+        })
+        self.assertRedirects(response, reverse('panel_games'))
+        game = Game.objects.get(title='Nuevo Juego')
+        self.assertEqual(game.publisher, self.enterprise)
+
+        response = self.client.post(reverse('panel_game_edit', args=[game.id]), {
+            'title': 'Juego Editado',
+            'studio': 'Nuevo Estudio',
+            'publisher': '',
+            'description': '',
+            'genres': 'Acción',
+            'year': 2025,
+            'price': '0',
+            'symbol': '★',
+            'tint': '',
+        })
+        self.assertRedirects(response, reverse('panel_games'))
+        game.refresh_from_db()
+        self.assertEqual(game.title, 'Juego Editado')
+        self.assertIsNone(game.publisher)
+
+        response = self.client.post(reverse('panel_game_delete', args=[game.id]))
+        self.assertRedirects(response, reverse('panel_games'))
+        self.assertFalse(Game.objects.filter(pk=game.pk).exists())
+
+    def test_game_export(self):
+        self.client.force_login(self.staff)
+        response = self.client.get(reverse('panel_games_export'))
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(response['Content-Type'].startswith('text/csv'))
+        self.assertIn('indievault-juegos.csv', response['Content-Disposition'])
+        content = response.content.decode('utf-8-sig')
+        self.assertIn('Título,Estudio,Empresa', content)
+        self.assertIn('Juego de Panel', content)
+
+    def test_enterprise_verify_and_edit(self):
+        self.client.force_login(self.staff)
+        response = self.client.post(
+            reverse('panel_enterprise_verify', args=[self.enterprise.id])
+        )
+        self.assertRedirects(response, reverse('panel_enterprises'))
+        self.enterprise.refresh_from_db()
+        self.assertTrue(self.enterprise.is_verified)
+
+        response = self.client.post(
+            reverse('panel_enterprise_edit', args=[self.enterprise.id]),
+            {
+                'studio_name': 'Estudio Renombrado',
+                'website': 'https://nuevo.example.com',
+                'description': 'Perfil actualizado.',
+                'is_verified': 'on',
+            },
+        )
+        self.assertRedirects(response, reverse('panel_enterprises'))
+        self.enterprise.refresh_from_db()
+        self.assertEqual(self.enterprise.studio_name, 'Estudio Renombrado')
+        self.assertTrue(self.enterprise.is_verified)
+
+    def test_enterprise_export(self):
+        self.client.force_login(self.staff)
+        response = self.client.get(reverse('panel_enterprises_export'))
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(response['Content-Type'].startswith('text/csv'))
+        content = response.content.decode('utf-8-sig')
+        self.assertIn('Estudio,Usuario,Correo', content)
+        self.assertIn('Estudio Panel', content)
+
+    def test_user_active_toggle(self):
+        self.client.force_login(self.staff)
+        response = self.client.post(
+            reverse('panel_user_toggle_active', args=[self.player.id])
+        )
+        self.assertRedirects(response, reverse('panel_users'))
+        self.player.refresh_from_db()
+        self.assertFalse(self.player.is_active)
+
+        self.client.post(reverse('panel_user_toggle_active', args=[self.player.id]))
+        self.player.refresh_from_db()
+        self.assertTrue(self.player.is_active)
+
+    def test_user_cannot_deactivate_self(self):
+        self.client.force_login(self.staff)
+        self.client.post(reverse('panel_user_toggle_active', args=[self.staff.id]))
+        self.staff.refresh_from_db()
+        self.assertTrue(self.staff.is_active)
+
+    def test_staff_toggle_requires_superuser(self):
+        self.client.force_login(self.staff)
+        response = self.client.post(
+            reverse('panel_user_toggle_staff', args=[self.player.id])
+        )
+        self.assertEqual(response.status_code, 403)
+        self.player.refresh_from_db()
+        self.assertFalse(self.player.is_staff)
+
+        self.client.force_login(self.superuser)
+        response = self.client.post(
+            reverse('panel_user_toggle_staff', args=[self.player.id])
+        )
+        self.assertRedirects(response, reverse('panel_users'))
+        self.player.refresh_from_db()
+        self.assertTrue(self.player.is_staff)
+
+    def test_user_export(self):
+        self.client.force_login(self.staff)
+        response = self.client.get(reverse('panel_users_export'))
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(response['Content-Type'].startswith('text/csv'))
+        content = response.content.decode('utf-8-sig')
+        self.assertIn('Usuario,Correo,Nombre', content)
+        self.assertIn('jugadora', content)
+
+    def test_library_status_and_delete(self):
+        self.client.force_login(self.staff)
+        response = self.client.post(
+            reverse('panel_library_status', args=[self.entry.id]),
+            {'status': LibraryEntry.Status.DONE},
+        )
+        self.assertRedirects(response, reverse('panel_library'))
+        self.entry.refresh_from_db()
+        self.assertEqual(self.entry.status, LibraryEntry.Status.DONE)
+
+        response = self.client.post(
+            reverse('panel_library_delete', args=[self.entry.id])
+        )
+        self.assertRedirects(response, reverse('panel_library'))
+        self.assertFalse(LibraryEntry.objects.filter(pk=self.entry.pk).exists())
+
+    def test_library_rejects_invalid_status(self):
+        self.client.force_login(self.staff)
+        self.client.post(
+            reverse('panel_library_status', args=[self.entry.id]),
+            {'status': 'Inventado'},
+        )
+        self.entry.refresh_from_db()
+        self.assertEqual(self.entry.status, LibraryEntry.Status.WANT)
+
+    def test_library_export(self):
+        self.client.force_login(self.staff)
+        response = self.client.get(reverse('panel_library_export'))
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(response['Content-Type'].startswith('text/csv'))
+        content = response.content.decode('utf-8-sig')
+        self.assertIn('Usuario,Juego,Estado', content)
+        self.assertIn('jugadora', content)
+
+    def test_export_requires_staff(self):
+        self.client.force_login(self.player)
+        response = self.client.get(reverse('panel_games_export'))
+        self.assertEqual(response.status_code, 403)

@@ -5,7 +5,6 @@ from django.contrib.auth import login as auth_login
 from django.contrib.auth import logout as auth_logout
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.forms import AuthenticationForm
-from django.core.exceptions import PermissionDenied
 from django.db.models import Q
 from django.http import HttpResponseRedirect
 from django.shortcuts import get_object_or_404, redirect, render
@@ -15,7 +14,7 @@ from django.views.decorators.http import require_POST
 
 from .forms import EnterpriseSignupForm, GameForm
 from .models import Game, LibraryEntry
-from .stats import admin_stats, user_stats
+from .stats import user_stats
 
 
 def index(request):
@@ -160,14 +159,6 @@ def estadisticas(request):
     return render(request, 'estadisticas.html', user_stats(request.user))
 
 
-@login_required
-def estadisticas_admin(request):
-    """Métricas globales, solo para personal de IndieVault."""
-    if not request.user.is_staff:
-        raise PermissionDenied
-    return render(request, 'estadisticas.html', admin_stats())
-
-
 def _has_enterprise(user):
     return getattr(user, 'enterprise', None) is not None
 
@@ -175,7 +166,13 @@ def _has_enterprise(user):
 def _redirect_after_login(request, user, next_url=''):
     """Un solo login: el tipo de cuenta decide el destino."""
     if user.is_staff:
-        return redirect('admin:index')
+        if next_url and url_has_allowed_host_and_scheme(
+            next_url,
+            allowed_hosts={request.get_host()},
+            require_https=request.is_secure(),
+        ):
+            return redirect(next_url)
+        return redirect('panel_dashboard')
     if _has_enterprise(user):
         return redirect('enterprise_dashboard')
     if next_url and url_has_allowed_host_and_scheme(
@@ -191,7 +188,7 @@ def login_view(request):
     """Login único para jugadores, empresas y administradores.
 
     No hay pestaña de administrador: si la cuenta tiene is_staff,
-    se redirige al panel de administración automáticamente.
+    se redirige al panel de gestión propio de IndieVault.
     """
     if request.user.is_authenticated:
         return _redirect_after_login(request, request.user)

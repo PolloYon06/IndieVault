@@ -1,0 +1,29 @@
+{% extends 'panel/base_panel.html' %}
+{% load static %}
+
+{% block panel_content %}
+<div class="stats-grid panel-stats">
+    {% for chart in charts %}
+        <article class="stat-card">
+            <header class="stat-head">
+                <h2>{{ chart.title }}</h2>
+                <p>{{ chart.note }}</p>
+            </header>
+            {% if chart.empty %}
+                <p class="chart-empty">{{ chart.empty_text }}</p>
+            {% else %}
+                <div class="chart-box{% if chart.gauge %} gauge{% endif %}">
+                    <canvas id="{{ chart.id }}" role="img" aria-label="{{ chart.title }}"></canvas>
+                    {% if chart.gauge %}
+                        <strong class="gauge-value">{{ chart.percentage }}%</strong>
+                    {% endif %}
+                </div>
+            {% endif %}
+        </article>
+    {% endfor %}
+</div>
+
+{{ charts|json_script:"chart-specs" }}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+<script src="{% static 'js/stats-charts.js' %}"></script>
+{% endblock %}

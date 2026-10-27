@@ -1,0 +1,102 @@
+{% extends 'panel/base_panel.html' %}
+
+{% block panel_content %}
+<div class="panel-actions">
+    <a class="button" href="{% url 'panel_game_create' %}">+ Nuevo juego</a>
+    <a class="button ghost" href="{% url 'panel_enterprises' %}{% if pending_count %}?verified=no{% endif %}">
+        Empresas por verificar{% if pending_count %} ({{ pending_count }}){% endif %}
+    </a>
+    <a class="button ghost" href="{% url 'panel_stats' %}">Ver estadísticas</a>
+    <a class="button ghost" href="{% url 'panel_games_export' %}">Exportar catálogo</a>
+</div>
+
+<div class="kpi-grid">
+    {% for kpi in kpis %}
+        <a class="kpi-card" href="{{ kpi.href }}">
+            <span class="kpi-label">{{ kpi.label }}</span>
+            <strong class="kpi-value">{{ kpi.value }}</strong>
+            <span class="kpi-note">{{ kpi.note }}</span>
+        </a>
+    {% endfor %}
+</div>
+
+<div class="panel-split">
+    <section class="panel-card" aria-labelledby="recent-games-title">
+        <header class="panel-card-head">
+            <div>
+                <p class="panel-kicker">Catálogo</p>
+                <h2 id="recent-games-title">Últimos juegos</h2>
+            </div>
+            <a class="panel-link" href="{% url 'panel_games' %}">Ver todos ↗</a>
+        </header>
+
+        <ul class="panel-list">
+            {% for game in recent_games %}
+                <li class="panel-row">
+                    <div class="panel-row-main">
+                        <a class="panel-row-title" href="{% url 'game_detail' game.slug %}">{{ game.title }}</a>
+                        <span class="panel-row-meta">
+                            {{ game.studio }} · {{ game.year }} ·
+                            {% if game.is_free %}Gratis{% else %}${{ game.price|stringformat:'.2f' }}{% endif %}
+                            {% if game.publisher %} · {{ game.publisher.studio_name }}{% endif %}
+                        </span>
+                    </div>
+                    <a class="panel-mini-link" href="{% url 'panel_game_edit' game.id %}">Editar</a>
+                </li>
+            {% empty %}
+                <li class="panel-empty">Aún no hay juegos en el catálogo.</li>
+            {% endfor %}
+        </ul>
+    </section>
+
+    <div class="panel-stack">
+        <section class="panel-card" aria-labelledby="pending-enterprises-title">
+            <header class="panel-card-head">
+                <div>
+                    <p class="panel-kicker">Empresas</p>
+                    <h2 id="pending-enterprises-title">Por verificar</h2>
+                </div>
+                <a class="panel-link" href="{% url 'panel_enterprises' %}?verified=no">Ver todas ↗</a>
+            </header>
+
+            {% for enterprise in pending_enterprises %}
+                <div class="panel-row">
+                    <div class="panel-row-main">
+                        <span class="panel-row-title">{{ enterprise.studio_name }}</span>
+                        <span class="panel-row-meta">{{ enterprise.user.username }}{% if enterprise.user.email %} · {{ enterprise.user.email }}{% endif %}</span>
+                    </div>
+                    <form method="post" action="{% url 'panel_enterprise_verify' enterprise.id %}">
+                        {% csrf_token %}
+                        <input type="hidden" name="next" value="{% url 'panel_dashboard' %}">
+                        <button class="button small" type="submit">Verificar</button>
+                    </form>
+                </div>
+            {% empty %}
+                <p class="panel-empty">No hay empresas pendientes.</p>
+            {% endfor %}
+        </section>
+
+        <section class="panel-card" aria-labelledby="recent-users-title">
+            <header class="panel-card-head">
+                <div>
+                    <p class="panel-kicker">Cuentas</p>
+                    <h2 id="recent-users-title">Últimos usuarios</h2>
+                </div>
+                <a class="panel-link" href="{% url 'panel_users' %}">Ver todos ↗</a>
+            </header>
+
+            {% for account in recent_users %}
+                <div class="panel-row">
+                    <div class="panel-row-main">
+                        <span class="panel-row-title">{{ account.username }}</span>
+                        <span class="panel-row-meta">{{ account.date_joined|date:"d M Y" }} · {% if account.is_staff %}Staff{% elif account.enterprise %}Empresa{% else %}Jugador{% endif %}</span>
+                    </div>
+                    <a class="panel-mini-link" href="{% url 'panel_users' %}?q={{ account.username|urlencode }}">Gestionar</a>
+                </div>
+            {% empty %}
+                <p class="panel-empty">Aún no hay cuentas registradas.</p>
+            {% endfor %}
+        </section>
+    </div>
+</div>
+{% endblock %}

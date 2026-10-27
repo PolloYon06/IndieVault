@@ -1,0 +1,76 @@
+{% extends 'panel/base_panel.html' %}
+
+{% block panel_content %}
+<div class="panel-actions">
+    <a class="button" href="{% url 'panel_game_create' %}">+ Nuevo juego</a>
+    <a class="button ghost" href="{% url 'panel_games_export' %}{% querystring %}">Exportar CSV</a>
+</div>
+
+<form class="panel-filters" method="get" action="{% url 'panel_games' %}">
+    <input class="search-input" type="search" name="q" value="{{ q }}" placeholder="Buscar título, estudio o género…" aria-label="Buscar juegos">
+    <select class="filter-select" name="price" aria-label="Filtrar por precio">
+        <option value=""{% if not price %} selected{% endif %}>Cualquier precio</option>
+        <option value="free"{% if price == 'free' %} selected{% endif %}>Gratis</option>
+        <option value="paid"{% if price == 'paid' %} selected{% endif %}>De pago</option>
+    </select>
+    <input type="hidden" name="publisher" value="{{ publisher.id|default:'' }}">
+    <button class="button small" type="submit">Filtrar</button>
+    {% if q or price or publisher %}
+        <a class="button small ghost" href="{% url 'panel_games' %}">Limpiar</a>
+    {% endif %}
+</form>
+
+{% if publisher %}
+    <p class="panel-filter-note">
+        Mostrando juegos de <strong>{{ publisher.studio_name }}</strong>.
+        <a href="{% url 'panel_games' %}">Quitar filtro</a>
+    </p>
+{% endif %}
+
+<p class="results-count">{{ total }} juego{{ total|pluralize }} encontrado{{ total|pluralize }}</p>
+
+<div class="panel-table-wrap">
+    <table class="panel-table">
+        <thead>
+            <tr>
+                <th>Juego</th>
+                <th>Estudio</th>
+                <th>Empresa</th>
+                <th>Año</th>
+                <th>Precio</th>
+                <th>Acciones</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for game in page_obj %}
+                <tr>
+                    <td>
+                        <a href="{% url 'game_detail' game.slug %}">{{ game.title }}</a>
+                        {% if game.genres %}<span class="table-sub">{{ game.genres }}</span>{% endif %}
+                    </td>
+                    <td>{{ game.studio }}</td>
+                    <td>{% if game.publisher %}{{ game.publisher.studio_name }}{% else %}<span class="muted">—</span>{% endif %}</td>
+                    <td>{{ game.year|default:"—" }}</td>
+                    <td>{% if game.is_free %}<span class="badge ok">Gratis</span>{% else %}${{ game.price|stringformat:'.2f' }}{% endif %}</td>
+                    <td>
+                        <div class="table-actions">
+                            <a class="button small ghost" href="{% url 'panel_game_edit' game.id %}">Editar</a>
+                            <form method="post" action="{% url 'panel_game_delete' game.id %}" onsubmit="return confirm('¿Eliminar «{{ game.title|escapejs }}» del catálogo? También se borrarán sus entradas de biblioteca.');">
+                                {% csrf_token %}
+                                <input type="hidden" name="next" value="{{ request.get_full_path }}">
+                                <button class="button small danger" type="submit">Eliminar</button>
+                            </form>
+                        </div>
+                    </td>
+                </tr>
+            {% empty %}
+                <tr>
+                    <td colspan="6"><p class="panel-empty">No hay juegos con esos filtros.</p></td>
+                </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+{% include 'panel/_pagination.html' %}
+{% endblock %}

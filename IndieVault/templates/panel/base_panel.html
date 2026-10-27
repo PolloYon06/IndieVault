@@ -1,0 +1,35 @@
+{% extends 'base.html' %}
+
+{% block title %}{{ panel_title }} · Panel · IndieVault{% endblock %}
+
+{% block content %}
+<section class="page-head panel-head">
+    <p class="eyebrow">Administración</p>
+    <h1>{{ panel_title }}</h1>
+    <p class="hero-copy">{{ panel_note }}</p>
+</section>
+
+<section class="page-shell">
+    <div class="panel-layout">
+        <aside class="panel-sidebar" aria-label="Secciones del panel">
+            <p class="panel-label">Panel</p>
+            <nav class="panel-nav">
+                <a href="{% url 'panel_dashboard' %}"{% if panel_section == 'dashboard' %} class="active" aria-current="page"{% endif %}>Resumen</a>
+                <a href="{% url 'panel_games' %}"{% if panel_section == 'games' %} class="active" aria-current="page"{% endif %}>Juegos</a>
+                <a href="{% url 'panel_enterprises' %}"{% if panel_section == 'enterprises' %} class="active" aria-current="page"{% endif %}>Empresas</a>
+                <a href="{% url 'panel_users' %}"{% if panel_section == 'users' %} class="active" aria-current="page"{% endif %}>Usuarios</a>
+                <a href="{% url 'panel_library' %}"{% if panel_section == 'library' %} class="active" aria-current="page"{% endif %}>Biblioteca</a>
+                <a href="{% url 'panel_stats' %}"{% if panel_section == 'stats' %} class="active" aria-current="page"{% endif %}>Estadísticas</a>
+            </nav>
+            <div class="panel-sidebar-foot">
+                <a href="{% url 'admin:index' %}">Admin avanzado ↗</a>
+                <a href="{% url 'index' %}">Ver sitio ↗</a>
+            </div>
+        </aside>
+
+        <div class="panel-main">
+            {% block panel_content %}{% endblock %}
+        </div>
+    </div>
+</section>
+{% endblock %}

@@ -1,0 +1,98 @@
+{% extends 'panel/base_panel.html' %}
+
+{% block panel_content %}
+<div class="panel-actions">
+    <a class="button ghost" href="{% url 'panel_users_export' %}{% querystring %}">Exportar CSV</a>
+</div>
+
+<form class="panel-filters" method="get" action="{% url 'panel_users' %}">
+    <input class="search-input" type="search" name="q" value="{{ q }}" placeholder="Buscar usuario, nombre o correo…" aria-label="Buscar usuarios">
+    <select class="filter-select" name="role" aria-label="Filtrar por rol">
+        <option value=""{% if not role %} selected{% endif %}>Todos los roles</option>
+        <option value="player"{% if role == 'player' %} selected{% endif %}>Jugadores</option>
+        <option value="enterprise"{% if role == 'enterprise' %} selected{% endif %}>Empresas</option>
+        <option value="staff"{% if role == 'staff' %} selected{% endif %}>Staff</option>
+    </select>
+    <button class="button small" type="submit">Filtrar</button>
+    {% if q or role %}
+        <a class="button small ghost" href="{% url 'panel_users' %}">Limpiar</a>
+    {% endif %}
+</form>
+
+<p class="results-count">{{ total }} cuenta{{ total|pluralize }} encontrada{{ total|pluralize }}</p>
+
+<div class="panel-table-wrap">
+    <table class="panel-table">
+        <thead>
+            <tr>
+                <th>Usuario</th>
+                <th>Correo</th>
+                <th>Registro</th>
+                <th>Rol</th>
+                <th>Biblioteca</th>
+                <th>Estado</th>
+                <th>Acciones</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for account in page_obj %}
+                <tr>
+                    <td>
+                        <strong>{{ account.username }}</strong>
+                        {% if account.get_full_name %}<span class="table-sub">{{ account.get_full_name }}</span>{% endif %}
+                    </td>
+                    <td>{{ account.email|default:"—" }}</td>
+                    <td>{{ account.date_joined|date:"d M Y" }}</td>
+                    <td>
+                        {% if account.is_staff %}
+                            <span class="badge ok">Staff</span>
+                        {% elif account.enterprise %}
+                            <span class="badge lilac">Empresa</span>
+                        {% else %}
+                            <span class="badge">Jugador</span>
+                        {% endif %}
+                    </td>
+                    <td>{{ account.entry_count }} juego{{ account.entry_count|pluralize }}</td>
+                    <td>
+                        {% if account.is_active %}
+                            <span class="badge ok">Activa</span>
+                        {% else %}
+                            <span class="badge warn">Inactiva</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if account == request.user or account.is_superuser and not request.user.is_superuser %}
+                            <span class="muted">Protegida</span>
+                        {% else %}
+                            <div class="table-actions">
+                                <form method="post" action="{% url 'panel_user_toggle_active' account.id %}">
+                                    {% csrf_token %}
+                                    <input type="hidden" name="next" value="{{ request.get_full_path }}">
+                                    <button class="button small ghost" type="submit">
+                                        {% if account.is_active %}Desactivar{% else %}Activar{% endif %}
+                                    </button>
+                                </form>
+                                {% if request.user.is_superuser and not account.is_superuser %}
+                                    <form method="post" action="{% url 'panel_user_toggle_staff' account.id %}">
+                                        {% csrf_token %}
+                                        <input type="hidden" name="next" value="{{ request.get_full_path }}">
+                                        <button class="button small ghost" type="submit">
+                                            {% if account.is_staff %}Quitar staff{% else %}Hacer staff{% endif %}
+                                        </button>
+                                    </form>
+                                {% endif %}
+                            </div>
+                        {% endif %}
+                    </td>
+                </tr>
+            {% empty %}
+                <tr>
+                    <td colspan="7"><p class="panel-empty">No hay cuentas con esos filtros.</p></td>
+                </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+{% include 'panel/_pagination.html' %}
+{% endblock %}

@@ -1,0 +1,80 @@
+{% extends 'panel/base_panel.html' %}
+
+{% block panel_content %}
+<div class="panel-actions">
+    <a class="button ghost" href="{% url 'panel_enterprises_export' %}{% querystring %}">Exportar CSV</a>
+</div>
+
+<form class="panel-filters" method="get" action="{% url 'panel_enterprises' %}">
+    <input class="search-input" type="search" name="q" value="{{ q }}" placeholder="Buscar estudio, usuario o correo…" aria-label="Buscar empresas">
+    <select class="filter-select" name="verified" aria-label="Filtrar por verificación">
+        <option value=""{% if not verified %} selected{% endif %}>Todas</option>
+        <option value="yes"{% if verified == 'yes' %} selected{% endif %}>Verificadas</option>
+        <option value="no"{% if verified == 'no' %} selected{% endif %}>Sin verificar</option>
+    </select>
+    <button class="button small" type="submit">Filtrar</button>
+    {% if q or verified %}
+        <a class="button small ghost" href="{% url 'panel_enterprises' %}">Limpiar</a>
+    {% endif %}
+</form>
+
+<p class="results-count">{{ total }} empresa{{ total|pluralize }} encontrada{{ total|pluralize }}</p>
+
+<div class="panel-table-wrap">
+    <table class="panel-table">
+        <thead>
+            <tr>
+                <th>Estudio</th>
+                <th>Cuenta</th>
+                <th>Juegos</th>
+                <th>Estado</th>
+                <th>Creada</th>
+                <th>Acciones</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for enterprise in page_obj %}
+                <tr>
+                    <td>
+                        <strong>{{ enterprise.studio_name }}</strong>
+                        {% if enterprise.website %}
+                            <span class="table-sub"><a href="{{ enterprise.website }}" target="_blank" rel="noopener">{{ enterprise.website }}</a></span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        {{ enterprise.user.username }}
+                        {% if enterprise.user.email %}<span class="table-sub">{{ enterprise.user.email }}</span>{% endif %}
+                    </td>
+                    <td><a href="{% url 'panel_games' %}?publisher={{ enterprise.id }}">{{ enterprise.game_count }} juego{{ enterprise.game_count|pluralize }}</a></td>
+                    <td>
+                        {% if enterprise.is_verified %}
+                            <span class="badge ok">Verificada</span>
+                        {% else %}
+                            <span class="badge warn">Pendiente</span>
+                        {% endif %}
+                    </td>
+                    <td>{{ enterprise.created_at|date:"d M Y" }}</td>
+                    <td>
+                        <div class="table-actions">
+                            <form method="post" action="{% url 'panel_enterprise_verify' enterprise.id %}">
+                                {% csrf_token %}
+                                <input type="hidden" name="next" value="{{ request.get_full_path }}">
+                                <button class="button small{% if enterprise.is_verified %} ghost{% endif %}" type="submit">
+                                    {% if enterprise.is_verified %}Quitar verificación{% else %}Verificar{% endif %}
+                                </button>
+                            </form>
+                            <a class="button small ghost" href="{% url 'panel_enterprise_edit' enterprise.id %}">Editar</a>
+                        </div>
+                    </td>
+                </tr>
+            {% empty %}
+                <tr>
+                    <td colspan="6"><p class="panel-empty">No hay empresas con esos filtros.</p></td>
+                </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+{% include 'panel/_pagination.html' %}
+{% endblock %}

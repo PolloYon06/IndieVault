@@ -28,8 +28,7 @@
             <a href="{% url 'suscripcion' %}"{% if request.resolver_match.url_name == 'suscripcion' %} class="active" aria-current="page"{% endif %}>Suscripción</a>
             {% if user.is_authenticated %}
                 {% if user.is_staff %}
-                    <a href="{% url 'admin:index' %}">Admin</a>
-                    <a href="{% url 'estadisticas_admin' %}"{% if request.resolver_match.url_name == 'estadisticas_admin' %} class="active" aria-current="page"{% endif %}>Métricas</a>
+                    <a href="{% url 'panel_dashboard' %}"{% if request.resolver_match.url_name and 'panel' in request.resolver_match.url_name %} class="active" aria-current="page"{% endif %}>Panel</a>
                 {% else %}
                     {% if user.enterprise %}
                         <a href="{% url 'enterprise_dashboard' %}"{% if request.resolver_match.url_name == 'enterprise_dashboard' %} class="active" aria-current="page"{% endif %}>Mi estudio</a>
