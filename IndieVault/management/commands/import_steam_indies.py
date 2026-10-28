@@ -230,11 +230,32 @@ class Command(BaseCommand):
 
     def _flush_batch(self, batch, counts, dry_run):
         if not dry_run:
-            Game.objects.bulk_create(
-                batch,
-                batch_size=500,
-                update_conflicts=True,
-                update_fields=BULK_UPDATE_FIELDS,
-                unique_fields=('steam_app_id',),
-            )
+            app_ids = [game.steam_app_id for game in batch]
+            with transaction.atomic():
+                Game.objects.bulk_create(
+                    batch,
+                    batch_size=500,
+                    ignore_conflicts=True,
+                )
+                stored_games = Game.objects.in_bulk(
+                    app_ids,
+                    field_name='steam_app_id',
+                )
+                missing_app_ids = set(app_ids) - stored_games.keys()
+                if missing_app_ids:
+                    sample_ids = ', '.join(map(str, sorted(missing_app_ids)[:5]))
+                    raise CommandError(
+                        'No se pudieron guardar algunos juegos de Steam; '
+                        f'conflicto de identificador o slug. App IDs: {sample_ids}'
+                    )
+
+                for game in batch:
+                    stored_game = stored_games[game.steam_app_id]
+                    for field in BULK_UPDATE_FIELDS:
+                        setattr(stored_game, field, getattr(game, field))
+                Game.objects.bulk_update(
+                    stored_games.values(),
+                    BULK_UPDATE_FIELDS,
+                    batch_size=500,
+                )
         counts['imported'] += len(batch)
