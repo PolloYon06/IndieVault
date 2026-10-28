@@ -5,7 +5,9 @@ from .models import Enterprise, Game, LibraryEntry
 
 @admin.register(Game)
 class GameAdmin(admin.ModelAdmin):
-    list_display = ['title', 'studio', 'publisher', 'year', 'price', 'genres']
+    list_display = [
+        'title', 'steam_app_id', 'studio', 'publisher', 'year', 'price', 'genres',
+    ]
     list_filter = ['genres', 'publisher']
     search_fields = ['title', 'studio']
     prepopulated_fields = {'slug': ('title',)}

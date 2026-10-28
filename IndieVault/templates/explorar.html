@@ -39,7 +39,7 @@
             {% endfor %}
         </div>
 
-        <p class="results-count">{% if q or genre or price or sort %}{% endif %}{{ games|length }} resultado{{ games|length|pluralize }}</p>
+        <p class="results-count">{{ games.paginator.count }} resultado{{ games.paginator.count|pluralize }}</p>
 
         <div class="game-grid">
             {% for game in games %}
@@ -79,5 +79,17 @@
                 </div>
             {% endfor %}
         </div>
+
+        {% if games.has_other_pages %}
+            <nav class="toolbar" aria-label="Paginación del catálogo">
+                {% if games.has_previous %}
+                    <a class="button" href="{% querystring page=games.previous_page_number %}">Anterior</a>
+                {% endif %}
+                <span>Página {{ games.number }} de {{ games.paginator.num_pages }}</span>
+                {% if games.has_next %}
+                    <a class="button" href="{% querystring page=games.next_page_number %}">Siguiente</a>
+                {% endif %}
+            </nav>
+        {% endif %}
     </section>
 {% endblock %}

@@ -1,4 +1,9 @@
+import csv
+import tempfile
+from pathlib import Path
+
 from django.contrib.auth import get_user_model
+from django.core.management import call_command
 from django.test import Client, TestCase
 from django.urls import reverse
 
@@ -232,6 +237,98 @@ class FilterTests(TestCase):
         html = self.page(q='xyzabc')
         self.assertIn('No encontramos nada', html)
         self.assertIn('Limpiar filtros', html)
+
+    def test_catalog_is_paginated(self):
+        for index in range(19):
+            Game.objects.create(
+                title=f'Juego adicional {index}',
+                studio='Estudio de prueba',
+                year=2025,
+                genres='Indie',
+            )
+
+        first_page = self.client.get(reverse('explorar'))
+        second_page = self.client.get(reverse('explorar'), {'page': 2})
+
+        self.assertEqual(len(first_page.context['games']), 24)
+        self.assertEqual(len(second_page.context['games']), 1)
+        self.assertContains(first_page, 'Página 1 de 2')
+        self.assertContains(second_page, 'Página 2 de 2')
+
+
+class SteamImportTests(TestCase):
+    columns = [
+        'appid', 'name', 'release_date', 'price', 'developers', 'publishers', 'genres',
+    ]
+
+    def setUp(self):
+        self.temp_dir = tempfile.TemporaryDirectory()
+        self.addCleanup(self.temp_dir.cleanup)
+        self.csv_path = Path(self.temp_dir.name) / 'steam.csv'
+
+    def write_csv(self, rows):
+        with self.csv_path.open('w', encoding='utf-8', newline='') as stream:
+            writer = csv.DictWriter(stream, fieldnames=self.columns)
+            writer.writeheader()
+            writer.writerows(rows)
+
+    def test_imports_only_steam_indies_and_is_idempotent(self):
+        self.write_csv([
+            {
+                'appid': '12345',
+                'name': 'Juego Indie Real',
+                'release_date': '21-08-2012',
+                'price': '9.99',
+                'developers': "['Estudio Real']",
+                'publishers': "['Editorial Real']",
+                'genres': "['Action', 'Indie']",
+            },
+            {
+                'appid': '67890',
+                'name': 'Juego no indie',
+                'release_date': '21-08-2012',
+                'price': '9.99',
+                'developers': "['Estudio']",
+                'publishers': "['Editorial']",
+                'genres': "['Action']",
+            },
+            {
+                'appid': '12346',
+                'name': 'Precio inválido',
+                'release_date': '21-08-2012',
+                'price': 'NaN',
+                'developers': "['Estudio']",
+                'publishers': "['Editorial']",
+                'genres': "['Indie']",
+            },
+        ])
+
+        call_command('import_steam_indies', str(self.csv_path), remove_demo_games=True)
+        call_command('import_steam_indies', str(self.csv_path))
+
+        game = Game.objects.get(steam_app_id=12345)
+        self.assertEqual(Game.objects.filter(steam_app_id__isnull=False).count(), 1)
+        self.assertEqual(game.title, 'Juego Indie Real')
+        self.assertEqual(game.studio, 'Estudio Real')
+        self.assertEqual(game.year, 2012)
+        self.assertIn('Indie', game.genre_list())
+        self.assertFalse(Game.objects.filter(title='Sendero de luciérnagas').exists())
+
+    def test_dry_run_does_not_change_games(self):
+        before = Game.objects.count()
+        self.write_csv([{
+            'appid': '12345',
+            'name': 'Juego Indie Real',
+            'release_date': '21-08-2012',
+            'price': '9.99',
+            'developers': "['Estudio Real']",
+            'publishers': "['Editorial Real']",
+            'genres': "['Indie']",
+        }])
+
+        call_command('import_steam_indies', str(self.csv_path), dry_run=True)
+
+        self.assertEqual(Game.objects.count(), before)
 class AuthTests(TestCase):
     def setUp(self):
         self.player = get_user_model().objects.create_user(

@@ -4,8 +4,9 @@ from django.utils.text import slugify
 
 
 class Game(models.Model):
-    title = models.CharField(max_length=120)
+    title = models.CharField(max_length=255)
     slug = models.SlugField(max_length=140, unique=True, blank=True)
+    steam_app_id = models.PositiveBigIntegerField(null=True, blank=True, unique=True)
     studio = models.CharField(max_length=120)
     description = models.TextField(blank=True)
     year = models.PositiveIntegerField(default=0)
