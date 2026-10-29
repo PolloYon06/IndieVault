@@ -133,6 +133,83 @@ class LibraryTests(TestCase):
             LibraryEntry.objects.filter(user=self.user, game=game).count(), 1
         )
 
+    def test_library_entry_status_can_be_updated(self):
+        entry = LibraryEntry.objects.create(
+            user=self.user,
+            game=Game.objects.first(),
+            status=LibraryEntry.Status.WANT,
+        )
+
+        response = self.client.post(
+            reverse('update_library_status', args=[entry.pk]),
+            {'status': LibraryEntry.Status.PLAYING},
+        )
+
+        self.assertRedirects(response, reverse('biblioteca'))
+        entry.refresh_from_db()
+        self.assertEqual(entry.status, LibraryEntry.Status.PLAYING)
+
+        response = self.client.post(
+            reverse('update_library_status', args=[entry.pk]),
+            {'status': LibraryEntry.Status.DONE},
+        )
+
+        self.assertRedirects(response, reverse('biblioteca'))
+        entry.refresh_from_db()
+        self.assertEqual(entry.status, LibraryEntry.Status.DONE)
+
+    def test_library_status_rejects_invalid_value(self):
+        entry = LibraryEntry.objects.create(
+            user=self.user,
+            game=Game.objects.first(),
+            status=LibraryEntry.Status.WANT,
+        )
+
+        response = self.client.post(
+            reverse('update_library_status', args=[entry.pk]),
+            {'status': 'Inventado'},
+        )
+
+        self.assertRedirects(response, reverse('biblioteca'))
+        entry.refresh_from_db()
+        self.assertEqual(entry.status, LibraryEntry.Status.WANT)
+
+    def test_library_status_cannot_change_another_users_entry(self):
+        other = get_user_model().objects.create_user(
+            username='otro-estado', password='clave-otro-estado-123'
+        )
+        entry = LibraryEntry.objects.create(
+            user=other,
+            game=Game.objects.first(),
+            status=LibraryEntry.Status.WANT,
+        )
+
+        response = self.client.post(
+            reverse('update_library_status', args=[entry.pk]),
+            {'status': LibraryEntry.Status.DONE},
+        )
+
+        self.assertEqual(response.status_code, 404)
+        entry.refresh_from_db()
+        self.assertEqual(entry.status, LibraryEntry.Status.WANT)
+
+    def test_library_status_update_requires_login_and_post(self):
+        entry = LibraryEntry.objects.create(
+            user=self.user,
+            game=Game.objects.first(),
+            status=LibraryEntry.Status.WANT,
+        )
+        url = reverse('update_library_status', args=[entry.pk])
+
+        self.client.logout()
+        response = self.client.post(url, {'status': LibraryEntry.Status.DONE})
+        self.assertEqual(response.status_code, 302)
+        self.assertIn(reverse('login'), response.url)
+
+        self.client.force_login(self.user)
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, 405)
+
     def test_libraries_are_isolated_per_user(self):
         game = Game.objects.first()
         other = get_user_model().objects.create_user(

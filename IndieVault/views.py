@@ -131,6 +131,25 @@ def remove_from_library(request, game_id):
     return _back_redirect(request)
 
 
+@login_required
+@require_POST
+def update_library_status(request, entry_id):
+    entry = get_object_or_404(LibraryEntry, pk=entry_id, user=request.user)
+    status = request.POST.get('status')
+
+    if status not in LibraryEntry.Status.values:
+        messages.error(request, 'El estado indicado no es válido.')
+    elif entry.status != status:
+        entry.status = status
+        entry.save(update_fields=['status'])
+        messages.success(
+            request,
+            f'“{entry.game.title}” ahora está en {entry.status}.',
+        )
+
+    return redirect('biblioteca')
+
+
 def custom_404(request, exception=None):
     return render(request, '404.html', status=404)
 
@@ -153,7 +172,10 @@ def biblioteca(request):
         }
         for title, status in groups
     ]
-    return render(request, 'biblioteca.html', {'groups': group_data})
+    return render(request, 'biblioteca.html', {
+        'groups': group_data,
+        'statuses': LibraryEntry.Status.choices,
+    })
 
 
 def suscripcion(request):

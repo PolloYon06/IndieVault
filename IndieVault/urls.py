@@ -9,6 +9,7 @@ urlpatterns = [
     path('estadisticas/', views.estadisticas, name='estadisticas'),
     path('biblioteca/agregar/<int:game_id>/', views.add_to_library, name='add_to_library'),
     path('biblioteca/quitar/<int:game_id>/', views.remove_from_library, name='remove_from_library'),
+    path('biblioteca/estado/<int:entry_id>/', views.update_library_status, name='update_library_status'),
     path('juego/<slug:slug>/', views.game_detail, name='game_detail'),
     path('suscripcion/', views.suscripcion, name='suscripcion'),
     path('login/', views.login_view, name='login'),

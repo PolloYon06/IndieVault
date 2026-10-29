@@ -25,6 +25,16 @@
                     <p>{{ entry.game.studio }} · {{ entry.game.genre_list|join:", " }}</p>
                 </div>
                 <span class="status{% if entry.status == 'En curso' %} playing{% elif entry.status == 'Terminado' %} done{% endif %}">{{ entry.status }}</span>
+                <form class="entry-status-form" method="post" action="{% url 'update_library_status' entry.id %}">
+                    {% csrf_token %}
+                    <label class="sr-only" for="status-{{ entry.id }}">Cambiar estado de {{ entry.game.title }}</label>
+                    <select id="status-{{ entry.id }}" name="status">
+                        {% for value, label in statuses %}
+                            <option value="{{ value }}"{% if entry.status == value %} selected{% endif %}>{{ label }}</option>
+                        {% endfor %}
+                    </select>
+                    <button class="button small library" type="submit">Actualizar</button>
+                </form>
             </div>
             {% empty %}
             <p class="count shelf-empty">Sin títulos todavía.</p>
