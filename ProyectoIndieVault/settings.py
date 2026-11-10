@@ -95,6 +95,14 @@ if os.environ.get('DJANGO_DB_ENGINE', 'mysql').lower() == 'sqlite':
         }
     }
 else:
+    db_options: dict[str, object] = {
+        'charset': 'utf8mb4',
+        'init_command': "SET sql_mode='STRICT_TRANS_TABLES'",
+    }
+    db_ssl_ca = os.environ.get('DJANGO_DB_SSL_CA')
+    if db_ssl_ca:
+        db_options['ssl'] = {'ca': db_ssl_ca}
+
     DATABASES = {
         'default': {
             'ENGINE': 'django.db.backends.mysql',
@@ -103,10 +111,7 @@ else:
             'PASSWORD': os.environ.get('DJANGO_DB_PASSWORD', 'indievault'),
             'HOST': os.environ.get('DJANGO_DB_HOST', '127.0.0.1'),
             'PORT': os.environ.get('DJANGO_DB_PORT', '3306'),
-            'OPTIONS': {
-                'charset': 'utf8mb4',
-                'init_command': "SET sql_mode='STRICT_TRANS_TABLES'",
-            },
+            'OPTIONS': db_options,
         }
     }
 
@@ -154,6 +159,18 @@ USE_TZ = True
 # https://docs.djangoproject.com/en/6.1/howto/static-files/
 
 STATIC_URL = 'static/'
+
+# Destino de `collectstatic` en producción (Nginx sirve esta carpeta).
+STATIC_ROOT = Path(
+    os.environ.get('DJANGO_STATIC_ROOT', BASE_DIR / 'staticfiles')
+)
+
+# Orígenes de confianza para formularios cuando se publica con un dominio/IP.
+CSRF_TRUSTED_ORIGINS = [
+    origin.strip()
+    for origin in os.environ.get('DJANGO_CSRF_TRUSTED_ORIGINS', '').split(',')
+    if origin.strip()
+]
 
 
 # Email
