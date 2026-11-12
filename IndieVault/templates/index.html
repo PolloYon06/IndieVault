@@ -19,13 +19,23 @@
                 <p>Encuentra tu próximo favorito entre historias y mundos fuera de lo común.</p>
                 <span class="card-link">Ir a explorar <span aria-hidden="true">↗</span></span>
             </a>
-            <a class="choice-card library" href="{% url 'biblioteca' %}">
-                <span class="card-kicker">02 / Coleccionar</span>
-                <span class="card-icon" aria-hidden="true">▤</span>
-                <h2>Mi biblioteca</h2>
-                <p>Un rincón propio para reunir los juegos que te gustan y los que quieres probar.</p>
-                <span class="card-link">Ver mi biblioteca <span aria-hidden="true">↗</span></span>
-            </a>
+            {% if user.is_staff %}
+                <a class="choice-card admin" href="{% url 'panel_dashboard' %}">
+                    <span class="card-kicker">02 / Administrar</span>
+                    <span class="card-icon" aria-hidden="true">⚙</span>
+                    <h2>Panel de control</h2>
+                    <p>Revisa las métricas del catálogo y gestiona juegos, empresas y cuentas.</p>
+                    <span class="card-link">Abrir el panel <span aria-hidden="true">↗</span></span>
+                </a>
+            {% else %}
+                <a class="choice-card library" href="{% url 'biblioteca' %}">
+                    <span class="card-kicker">02 / Coleccionar</span>
+                    <span class="card-icon" aria-hidden="true">▤</span>
+                    <h2>Mi biblioteca</h2>
+                    <p>Un rincón propio para reunir los juegos que te gustan y los que quieres probar.</p>
+                    <span class="card-link">Ver mi biblioteca <span aria-hidden="true">↗</span></span>
+                </a>
+            {% endif %}
         </div>
     </section>
 
@@ -38,12 +48,23 @@
         </div>
     </section>
 
-    <section class="destination library-destination" id="biblioteca" aria-labelledby="biblioteca-title">
-        <p class="section-kicker">Ruta 02 · Coleccionar</p>
-        <div>
-            <h2 id="biblioteca-title">Tu biblioteca, a tu manera</h2>
-            <p>Organiza tus descubrimientos, guarda pendientes y ten tus juegos favoritos siempre a mano.</p>
-            <a class="back-link" href="{% url 'biblioteca' %}">Abrir mi biblioteca ↗</a>
-        </div>
-    </section>
+    {% if user.is_staff %}
+        <section class="destination" id="panel" aria-labelledby="panel-title">
+            <p class="section-kicker">Ruta 02 · Administrar</p>
+            <div>
+                <h2 id="panel-title">El pulso de la plataforma</h2>
+                <p>Gráficos, catálogo, empresas y cuentas en un solo lugar, con el detalle que necesitas para decidir.</p>
+                <a class="back-link" href="{% url 'panel_dashboard' %}">Abrir el panel ↗</a>
+            </div>
+        </section>
+    {% else %}
+        <section class="destination library-destination" id="biblioteca" aria-labelledby="biblioteca-title">
+            <p class="section-kicker">Ruta 02 · Coleccionar</p>
+            <div>
+                <h2 id="biblioteca-title">Tu biblioteca, a tu manera</h2>
+                <p>Organiza tus descubrimientos, guarda pendientes y ten tus juegos favoritos siempre a mano.</p>
+                <a class="back-link" href="{% url 'biblioteca' %}">Abrir mi biblioteca ↗</a>
+            </div>
+        </section>
+    {% endif %}
 {% endblock %}

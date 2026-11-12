@@ -1,6 +1,6 @@
 from django.contrib import admin
 
-from .models import Enterprise, Game, LibraryEntry
+from .models import Enterprise, Game, LibraryEntry, Profile
 
 
 @admin.register(Game)
@@ -45,3 +45,11 @@ class LibraryEntryAdmin(admin.ModelAdmin):
     list_editable = ['status']
     list_per_page = 25
     autocomplete_fields = ['user', 'game']
+
+
+@admin.register(Profile)
+class ProfileAdmin(admin.ModelAdmin):
+    list_display = ['user', 'bio']
+    search_fields = [
+        'user__username', 'user__email', 'user__first_name', 'user__last_name',
+    ]

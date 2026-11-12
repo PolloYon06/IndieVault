@@ -4,22 +4,7 @@
 {% block panel_content %}
 <div class="stats-grid panel-stats">
     {% for chart in charts %}
-        <article class="stat-card">
-            <header class="stat-head">
-                <h2>{{ chart.title }}</h2>
-                <p>{{ chart.note }}</p>
-            </header>
-            {% if chart.empty %}
-                <p class="chart-empty">{{ chart.empty_text }}</p>
-            {% else %}
-                <div class="chart-box{% if chart.gauge %} gauge{% endif %}">
-                    <canvas id="{{ chart.id }}" role="img" aria-label="{{ chart.title }}"></canvas>
-                    {% if chart.gauge %}
-                        <strong class="gauge-value">{{ chart.percentage }}%</strong>
-                    {% endif %}
-                </div>
-            {% endif %}
-        </article>
+        {% include 'panel/_chart_card.html' %}
     {% endfor %}
 </div>
 

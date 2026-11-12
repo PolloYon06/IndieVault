@@ -6,6 +6,7 @@ db.sqlite3
 !.env.example
 indieEnv/
 staticfiles/
+media/
 graphify-out/
 
 # Local tooling / OS

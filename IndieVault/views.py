@@ -13,8 +13,8 @@ from django.urls import reverse
 from django.utils.http import url_has_allowed_host_and_scheme
 from django.views.decorators.http import require_POST
 
-from .forms import EnterpriseSignupForm, GameForm
-from .models import Game, LibraryEntry
+from .forms import EnterpriseSignupForm, GameForm, ProfileForm
+from .models import Game, LibraryEntry, Profile
 from .stats import user_stats
 
 
@@ -114,6 +114,9 @@ def _back_redirect(request):
 @login_required
 @require_POST
 def add_to_library(request, game_id):
+    if request.user.is_staff:
+        return redirect('panel_dashboard')
+
     game = get_object_or_404(Game, pk=game_id)
     LibraryEntry.objects.get_or_create(
         user=request.user,
@@ -126,6 +129,9 @@ def add_to_library(request, game_id):
 @login_required
 @require_POST
 def remove_from_library(request, game_id):
+    if request.user.is_staff:
+        return redirect('panel_dashboard')
+
     game = get_object_or_404(Game, pk=game_id)
     LibraryEntry.objects.filter(user=request.user, game=game).delete()
     return _back_redirect(request)
@@ -134,6 +140,9 @@ def remove_from_library(request, game_id):
 @login_required
 @require_POST
 def update_library_status(request, entry_id):
+    if request.user.is_staff:
+        return redirect('panel_dashboard')
+
     entry = get_object_or_404(LibraryEntry, pk=entry_id, user=request.user)
     status = request.POST.get('status')
 
@@ -156,6 +165,9 @@ def custom_404(request, exception=None):
 
 @login_required
 def biblioteca(request):
+    if request.user.is_staff:
+        return redirect('panel_dashboard')
+
     groups = [
         ('Quiero jugar', 'Pendiente'),
         ('Jugando', 'En curso'),
@@ -185,7 +197,34 @@ def suscripcion(request):
 @login_required
 def estadisticas(request):
     """Panel personal con cuatro gráficos de la biblioteca del usuario."""
+    if request.user.is_staff:
+        return redirect('panel_stats')
     return render(request, 'estadisticas.html', user_stats(request.user))
+
+
+@login_required
+def perfil(request):
+    """Permite personalizar la cuenta y subir una foto de perfil."""
+    profile, _ = Profile.objects.get_or_create(user=request.user)
+
+    if request.method == 'POST':
+        form = ProfileForm(
+            request.POST,
+            request.FILES,
+            instance=profile,
+            user=request.user,
+        )
+        if form.is_valid():
+            form.save()
+            messages.success(request, 'Tu perfil se actualizó correctamente.')
+            return redirect('perfil')
+    else:
+        form = ProfileForm(instance=profile, user=request.user)
+
+    return render(request, 'perfil.html', {
+        'form': form,
+        'profile': profile,
+    })
 
 
 def _has_enterprise(user):
@@ -195,12 +234,7 @@ def _has_enterprise(user):
 def _redirect_after_login(request, user, next_url=''):
     """Un solo login: el tipo de cuenta decide el destino."""
     if user.is_staff:
-        if next_url and url_has_allowed_host_and_scheme(
-            next_url,
-            allowed_hosts={request.get_host()},
-            require_https=request.is_secure(),
-        ):
-            return redirect(next_url)
+        # El personal siempre aterriza en su panel, aunque llegue con ?next=.
         return redirect('panel_dashboard')
     if _has_enterprise(user):
         return redirect('enterprise_dashboard')

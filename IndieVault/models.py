@@ -81,6 +81,25 @@ class Enterprise(models.Model):
         super().save(*args, **kwargs)
 
 
+class Profile(models.Model):
+    """Personalización de una cuenta: avatar y presentación pública."""
+
+    user = models.OneToOneField(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name='profile',
+    )
+    avatar = models.ImageField(upload_to='avatars/', blank=True)
+    bio = models.CharField(max_length=200, blank=True)
+
+    class Meta:
+        verbose_name = 'perfil'
+        verbose_name_plural = 'perfiles'
+
+    def __str__(self):
+        return f'Perfil de {self.user.username}'
+
+
 class LibraryEntry(models.Model):
     class Status(models.TextChoices):
         WANT = 'Pendiente', 'Pendiente'

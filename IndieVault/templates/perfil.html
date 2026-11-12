@@ -1,0 +1,122 @@
+{% extends 'base.html' %}
+{% load indievault_tags %}
+
+{% block title %}Mi perfil · IndieVault{% endblock %}
+
+{% block content %}
+<section class="page-head profile-head">
+    <p class="eyebrow">Tu cuenta</p>
+    <h1>Tu <span>perfil</span></h1>
+    <p class="hero-copy">Elige cómo te ve la comunidad, cuéntanos qué buscas y ponle cara a tu biblioteca.</p>
+</section>
+
+<section class="page-shell">
+    <div class="profile-layout">
+        <aside class="profile-card" aria-labelledby="profile-name">
+            {% with avatar=user|avatar_url %}
+                {% if avatar %}
+                    <img id="avatar-preview" class="profile-avatar-lg" src="{{ avatar }}" alt="Foto de {{ user|display_name }}">
+                {% else %}
+                    <span id="avatar-preview" class="profile-avatar-lg profile-avatar-fallback" aria-hidden="true">{{ user|initials }}</span>
+                {% endif %}
+            {% endwith %}
+
+            <h2 class="profile-name" id="profile-name">{{ user|display_name }}</h2>
+            <p class="profile-handle">@{{ user.username }}</p>
+
+            {% if profile.bio %}
+                <p class="profile-bio">{{ profile.bio }}</p>
+            {% else %}
+                <p class="profile-bio profile-bio-empty">Todavía no has escrito nada sobre ti.</p>
+            {% endif %}
+
+            <div class="profile-meta">
+                <span>Miembro desde {{ user.date_joined|date:"M Y" }}</span>
+                {% if user.is_staff %}<span>Equipo de IndieVault</span>{% endif %}
+            </div>
+
+            <div class="profile-links">
+                {% if user.is_staff %}
+                    <a class="button ghost small" href="{% url 'panel_dashboard' %}">Ir al panel</a>
+                {% else %}
+                    <a class="button ghost small" href="{% url 'estadisticas' %}">Mis estadísticas</a>
+                    <a class="button ghost small" href="{% url 'biblioteca' %}">Mi biblioteca</a>
+                {% endif %}
+            </div>
+        </aside>
+
+        <form class="studio-form profile-form" method="post" enctype="multipart/form-data" novalidate>
+            {% csrf_token %}
+
+            <div class="profile-form-grid">
+                <div class="form-field">
+                    <label for="{{ form.first_name.id_for_label }}">{{ form.first_name.label }}</label>
+                    {{ form.first_name }}
+                    {% for error in form.first_name.errors %}<p class="form-error">{{ error }}</p>{% endfor %}
+                </div>
+
+                <div class="form-field">
+                    <label for="{{ form.last_name.id_for_label }}">{{ form.last_name.label }}</label>
+                    {{ form.last_name }}
+                    {% for error in form.last_name.errors %}<p class="form-error">{{ error }}</p>{% endfor %}
+                </div>
+            </div>
+
+            <div class="form-field">
+                <label for="{{ form.email.id_for_label }}">{{ form.email.label }}</label>
+                {{ form.email }}
+                {% for error in form.email.errors %}<p class="form-error">{{ error }}</p>{% endfor %}
+            </div>
+
+            <div class="form-field">
+                <label for="{{ form.avatar.id_for_label }}">{{ form.avatar.label }}</label>
+                {{ form.avatar }}
+                {% for error in form.avatar.errors %}<p class="form-error">{{ error }}</p>{% endfor %}
+                {% if form.avatar.help_text %}<p class="form-help">{{ form.avatar.help_text }}</p>{% endif %}
+            </div>
+
+            <div class="form-field">
+                <label for="{{ form.bio.id_for_label }}">{{ form.bio.label }}</label>
+                {{ form.bio }}
+                {% for error in form.bio.errors %}<p class="form-error">{{ error }}</p>{% endfor %}
+                {% if form.bio.help_text %}<p class="form-help">{{ form.bio.help_text }}</p>{% endif %}
+            </div>
+
+            {% for error in form.non_field_errors %}<p class="form-error">{{ error }}</p>{% endfor %}
+
+            <div class="form-actions">
+                <button class="button" type="submit">Guardar cambios</button>
+                <a class="button ghost" href="{% url 'index' %}">Cancelar</a>
+            </div>
+        </form>
+    </div>
+</section>
+
+<script>
+    (function () {
+        const input = document.getElementById('id_avatar');
+        const initialPreview = document.getElementById('avatar-preview');
+        if (!input || !initialPreview) return;
+
+        let preview = initialPreview;
+        input.addEventListener('change', () => {
+            const file = input.files && input.files[0];
+            if (!file) return;
+
+            const url = URL.createObjectURL(file);
+            if (preview.tagName === 'IMG') {
+                preview.src = url;
+                return;
+            }
+
+            const image = document.createElement('img');
+            image.id = 'avatar-preview';
+            image.className = 'profile-avatar-lg';
+            image.alt = 'Vista previa de tu foto de perfil';
+            image.src = url;
+            preview.replaceWith(image);
+            preview = image;
+        });
+    })();
+</script>
+{% endblock %}

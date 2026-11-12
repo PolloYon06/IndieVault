@@ -145,6 +145,52 @@ def admin_stats():
 
     user_labels, user_values = _users_last_months(6)
 
+    # --- Datos para los gráficos atípicos del panel -------------------------
+
+    year_buckets = {}
+    for game in games:
+        if not game.year:
+            continue
+        bucket = year_buckets.setdefault(game.year, {'count': 0, 'total': 0.0})
+        bucket['count'] += 1
+        bucket['total'] += float(game.price)
+
+    bubble_points = []
+    for year in sorted(year_buckets):
+        bucket = year_buckets[year]
+        average = bucket['total'] / bucket['count']
+        bubble_points.append({
+            'x': year,
+            'y': round(average, 2),
+            'r': round(min(6 + bucket['count'] ** 0.5, 22), 1),
+            'label': (
+                f'{year}: {_plural(bucket["count"], "juego", "juegos")} '
+                f'· ${average:.2f} de precio medio'
+            ),
+        })
+
+    decade_counts = Counter(
+        f'{game.year // 10 * 10}s' for game in games if game.year
+    )
+    decade_labels = sorted(decade_counts)
+    decade_values = [decade_counts[label] for label in decade_labels]
+
+    studio_counts = Counter(game.studio for game in games if game.studio)
+    top_studios = studio_counts.most_common(6)
+    studio_total = sum(count for _, count in top_studios) or 1
+    tones = ['lime', 'lilac']
+    mosaic_blocks = [
+        {
+            'label': studio,
+            'value': count,
+            'percent': round(count * 100 / studio_total, 1),
+            'tone': tones[index % len(tones)],
+        }
+        for index, (studio, count) in enumerate(top_studios)
+    ]
+
+    registration_heatmap = _registration_heatmap()
+
     charts = [
         {
             'id': 'admin-genres',
@@ -191,6 +237,59 @@ def admin_stats():
             'empty': sum(user_values) == 0,
             'empty_text': 'Sin registros en los últimos 6 meses.',
         },
+        {
+            'id': 'admin-radar',
+            'title': 'ADN del catálogo',
+            'note': 'Los 8 géneros con más títulos',
+            'type': 'radar',
+            'labels': [genre for genre, _ in top_genres[:8]],
+            'values': [count for _, count in top_genres[:8]],
+            'colors': 'lime',
+            'empty': not top_genres,
+            'empty_text': 'No hay géneros que dibujar.',
+        },
+        {
+            'id': 'admin-decades',
+            'title': 'Juegos por década',
+            'note': 'La línea temporal del catálogo',
+            'type': 'polarArea',
+            'labels': decade_labels,
+            'values': decade_values,
+            'colors': ['lime', 'lilac', 'muted', 'lime', 'lilac', 'muted'],
+            'empty': not decade_labels,
+            'empty_text': 'No hay años registrados.',
+        },
+        {
+            'id': 'admin-bubble',
+            'title': 'Precio medio por año',
+            'note': 'Cada burbuja es un año; su tamaño, el volumen de juegos',
+            'type': 'bubble',
+            'points': bubble_points,
+            'colors': 'lilac',
+            'empty': not bubble_points,
+            'empty_text': 'No hay precios y años suficientes.',
+        },
+        {
+            'id': 'admin-heatmap',
+            'title': 'Altas por día y mes',
+            'note': f'{_plural(registration_heatmap["total"], "registro", "registros")} en los últimos 12 meses',
+            'type': 'heatmap',
+            'x_labels': registration_heatmap['x_labels'],
+            'rows': registration_heatmap['rows'],
+            'wide': True,
+            'empty': registration_heatmap['total'] == 0,
+            'empty_text': 'Sin registros en el último año.',
+        },
+        {
+            'id': 'admin-mosaic',
+            'title': 'Estudios líderes',
+            'note': 'Cuota de títulos entre los 6 estudios con más presencia',
+            'type': 'mosaic',
+            'blocks': mosaic_blocks,
+            'wide': True,
+            'empty': not mosaic_blocks,
+            'empty_text': 'No hay estudios registrados.',
+        },
     ]
 
     return {
@@ -200,4 +299,82 @@ def admin_stats():
         'page_title': 'Métricas de IndieVault',
         'page_note': 'Una vista rápida del catálogo, la biblioteca y el crecimiento.',
         'charts': charts,
+    }
+
+
+DASHBOARD_CHART_IDS = (
+    'admin-radar',
+    'admin-bubble',
+    'admin-heatmap',
+    'admin-mosaic',
+)
+
+
+def dashboard_charts():
+    """Selección de gráficos atípicos para el resumen del panel."""
+    charts = {chart['id']: chart for chart in admin_stats()['charts']}
+    return [
+        charts[chart_id]
+        for chart_id in DASHBOARD_CHART_IDS
+        if chart_id in charts
+    ]
+
+
+def _month_keys(months=12):
+    today = timezone.localdate()
+    year, month = today.year, today.month
+    keys = []
+
+    for _ in range(months):
+        keys.append((year, month))
+        if month == 1:
+            year, month = year - 1, 12
+        else:
+            month -= 1
+
+    keys.reverse()
+    return keys
+
+
+def _registration_heatmap(months=12):
+    """Registros agrupados por mes y día de la semana."""
+    User = get_user_model()
+    keys = _month_keys(months)
+    month_index = {key: index for index, key in enumerate(keys)}
+    counts = Counter()
+
+    for joined in User.objects.values_list('date_joined', flat=True):
+        local = timezone.localtime(joined)
+        index = month_index.get((local.year, local.month))
+        if index is not None:
+            counts[(index, local.weekday())] += 1
+
+    weekday_labels = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom']
+    max_value = max(counts.values(), default=0)
+    rows = []
+
+    for weekday, label in enumerate(weekday_labels):
+        cells = []
+        for index, (year, month) in enumerate(keys):
+            value = counts.get((index, weekday), 0)
+            if value == 0 or max_value == 0:
+                level = 0
+            else:
+                level = max(1, round(value * 4 / max_value))
+            cells.append({
+                'value': value,
+                'level': level,
+                'label': (
+                    f'{label} {MONTH_ABBR[month - 1]} {year}: '
+                    f'{_plural(value, "registro", "registros")}'
+                ),
+            })
+        rows.append({'label': label, 'cells': cells})
+
+    return {
+        'x_labels': [
+            f'{MONTH_ABBR[month - 1]} {str(year)[2:]}' for year, month in keys
+        ],
+        'rows': rows,
+        'total': sum(counts.values()),
     }

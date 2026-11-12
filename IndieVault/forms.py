@@ -3,7 +3,7 @@ from django.contrib.auth import get_user_model
 from django.contrib.auth.password_validation import validate_password
 from django.core.exceptions import ValidationError
 
-from .models import Enterprise, Game
+from .models import Enterprise, Game, Profile
 
 
 class EnterpriseSignupForm(forms.Form):
@@ -133,3 +133,73 @@ class AdminEnterpriseForm(forms.ModelForm):
         labels = {
             'is_verified': 'Empresa verificada',
         }
+
+
+class ProfileForm(forms.ModelForm):
+    """Datos de la cuenta y personalización del perfil."""
+
+    first_name = forms.CharField(
+        max_length=150,
+        required=False,
+        label='Nombre',
+        widget=forms.TextInput(attrs={'autocomplete': 'given-name'}),
+    )
+    last_name = forms.CharField(
+        max_length=150,
+        required=False,
+        label='Apellidos',
+        widget=forms.TextInput(attrs={'autocomplete': 'family-name'}),
+    )
+    email = forms.EmailField(
+        required=False,
+        label='Correo',
+        widget=forms.EmailInput(attrs={'autocomplete': 'email'}),
+    )
+
+    class Meta:
+        model = Profile
+        fields = ['avatar', 'bio']
+        widgets = {
+            'bio': forms.Textarea(attrs={
+                'rows': 3,
+                'placeholder': 'Cuéntanos qué tipo de juegos te gustan…',
+            }),
+        }
+        labels = {
+            'avatar': 'Foto de perfil',
+            'bio': 'Sobre mí',
+        }
+        help_texts = {
+            'avatar': 'JPG, PNG o WebP. Máximo 4 MB.',
+            'bio': 'Una frase corta que se mostrará en tu perfil.',
+        }
+
+    def __init__(self, *args, user=None, **kwargs):
+        self.user = user
+        super().__init__(*args, **kwargs)
+
+        if user is not None:
+            self.fields['first_name'].initial = user.first_name
+            self.fields['last_name'].initial = user.last_name
+            self.fields['email'].initial = user.email
+
+    def clean_avatar(self):
+        avatar = self.cleaned_data.get('avatar')
+        if avatar and getattr(avatar, 'size', 0) > 4 * 1024 * 1024:
+            raise ValidationError('La imagen no puede superar los 4 MB.')
+        return avatar
+
+    def save(self, commit=True):
+        profile = super().save(commit=False)
+
+        if self.user is not None:
+            self.user.first_name = self.cleaned_data.get('first_name', '').strip()
+            self.user.last_name = self.cleaned_data.get('last_name', '').strip()
+            self.user.email = self.cleaned_data.get('email', '').strip()
+            if commit:
+                self.user.save(update_fields=['first_name', 'last_name', 'email'])
+
+        if commit:
+            profile.save()
+
+        return profile

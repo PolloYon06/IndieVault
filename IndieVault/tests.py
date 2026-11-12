@@ -1,13 +1,15 @@
+import base64
 import csv
 import tempfile
 from pathlib import Path
 
 from django.contrib.auth import get_user_model
+from django.core.files.uploadedfile import SimpleUploadedFile
 from django.core.management import call_command
-from django.test import Client, TestCase
+from django.test import Client, TestCase, override_settings
 from django.urls import reverse
 
-from .models import Enterprise, Game, LibraryEntry
+from .models import Enterprise, Game, LibraryEntry, Profile
 from .stats import admin_stats, user_stats
 
 
@@ -973,3 +975,117 @@ class PanelTests(TestCase):
         self.client.force_login(self.player)
         response = self.client.get(reverse('panel_games_export'))
         self.assertEqual(response.status_code, 403)
+
+
+class ProfileTests(TestCase):
+    tiny_png = base64.b64decode(
+        'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk'
+        '+A8AAQUBAScY42YAAAAASUVORK5CYII='
+    )
+
+    def setUp(self):
+        self.user = get_user_model().objects.create_user(
+            username='perfil', password='clave-perfil-123'
+        )
+
+    def test_profile_created_with_user(self):
+        self.assertTrue(Profile.objects.filter(user=self.user).exists())
+
+    def test_profile_requires_login(self):
+        response = self.client.get(reverse('perfil'))
+        self.assertEqual(response.status_code, 302)
+        self.assertIn(reverse('login'), response.url)
+
+    def test_profile_page_renders(self):
+        self.client.force_login(self.user)
+        response = self.client.get(reverse('perfil'))
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'Mi perfil')
+        self.assertContains(response, 'Foto de perfil')
+
+    def test_profile_updates_data_and_avatar(self):
+        self.client.force_login(self.user)
+        avatar = SimpleUploadedFile(
+            'avatar.png', self.tiny_png, content_type='image/png'
+        )
+
+        with tempfile.TemporaryDirectory() as media_root:
+            with override_settings(MEDIA_ROOT=media_root):
+                response = self.client.post(reverse('perfil'), {
+                    'first_name': 'Ada',
+                    'last_name': 'Lovelace',
+                    'email': 'ada@example.com',
+                    'bio': 'Exploradora de mundos pequeños.',
+                    'avatar': avatar,
+                })
+
+        self.assertRedirects(response, reverse('perfil'))
+        self.user.refresh_from_db()
+        profile = Profile.objects.get(user=self.user)
+        self.assertEqual(self.user.first_name, 'Ada')
+        self.assertEqual(self.user.last_name, 'Lovelace')
+        self.assertEqual(self.user.email, 'ada@example.com')
+        self.assertEqual(profile.bio, 'Exploradora de mundos pequeños.')
+        self.assertTrue(profile.avatar.name.startswith('avatars/'))
+
+
+class StaffExperienceTests(TestCase):
+    def setUp(self):
+        User = get_user_model()
+        self.staff = User.objects.create_user(
+            username='staff-experiencia', password='clave-staff-123', is_staff=True
+        )
+        self.player = User.objects.create_user(
+            username='jugador-experiencia', password='clave-jugador-123'
+        )
+
+    def test_staff_login_ignores_next(self):
+        response = self.client.post(reverse('login'), {
+            'username': 'staff-experiencia',
+            'password': 'clave-staff-123',
+            'next': reverse('explorar'),
+        })
+        self.assertRedirects(
+            response, reverse('panel_dashboard'), fetch_redirect_response=False
+        )
+
+    def test_staff_cannot_open_personal_library(self):
+        self.client.force_login(self.staff)
+        response = self.client.get(reverse('biblioteca'))
+        self.assertRedirects(response, reverse('panel_dashboard'))
+
+    def test_staff_cannot_open_personal_stats(self):
+        self.client.force_login(self.staff)
+        response = self.client.get(reverse('estadisticas'))
+        self.assertRedirects(response, reverse('panel_stats'))
+
+
+class AtypicalStatsTests(TestCase):
+    def setUp(self):
+        User = get_user_model()
+        self.staff = User.objects.create_user(
+            username='staff-graficos', password='clave-staff-123', is_staff=True
+        )
+        Game.objects.create(
+            title='Juego Radar', studio='Estudio Radar', genres='Puzzle, Aventura',
+            year=2020, price=9.99,
+        )
+        Game.objects.create(
+            title='Juego Mosaico', studio='Estudio Mosaico', genres='Acción',
+            year=2024, price=0,
+        )
+
+    def test_admin_stats_contains_atypical_charts(self):
+        chart_types = {chart['type'] for chart in admin_stats()['charts']}
+        self.assertTrue(
+            {'radar', 'polarArea', 'bubble', 'heatmap', 'mosaic'}.issubset(chart_types)
+        )
+
+    def test_dashboard_renders_charts(self):
+        self.client.force_login(self.staff)
+        response = self.client.get(reverse('panel_dashboard'))
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'ADN del catálogo')
+        self.assertContains(response, 'Altas por día y mes')
+        self.assertContains(response, 'Estudios líderes')
+        self.assertContains(response, 'chart-specs')

@@ -16,7 +16,7 @@ from django.views.decorators.http import require_POST
 
 from .forms import AdminEnterpriseForm, AdminGameForm
 from .models import Enterprise, Game, LibraryEntry
-from .stats import admin_stats
+from .stats import admin_stats, dashboard_charts
 
 
 def staff_required(view_func):
@@ -194,10 +194,10 @@ def panel_dashboard(request):
             'href': reverse('panel_enterprises'),
         },
         {
-            'label': 'Biblioteca',
+            'label': 'Actividad',
             'value': total_entries,
             'note': f'{done_entries} terminados',
-            'href': reverse('panel_library'),
+            'href': reverse('panel_stats'),
         },
     ]
 
@@ -206,6 +206,7 @@ def panel_dashboard(request):
         'panel_title': 'Panel de control',
         'panel_note': 'Gestiona el catálogo, las cuentas y la actividad de IndieVault.',
         'kpis': kpis,
+        'dashboard_charts': dashboard_charts(),
         'pending_count': pending_count,
         'recent_games': Game.objects.select_related('publisher').order_by('-id')[:6],
         'recent_users': User.objects.order_by('-date_joined')[:6],

@@ -1,0 +1,47 @@
+<article class="stat-card{% if chart.wide %} wide{% endif %}">
+    <header class="stat-head">
+        <h2>{{ chart.title }}</h2>
+        <p>{{ chart.note }}</p>
+    </header>
+
+    {% if chart.empty %}
+        <p class="chart-empty">{{ chart.empty_text }}</p>
+    {% elif chart.type == 'heatmap' %}
+        <div class="heatmap" role="img" aria-label="{{ chart.title }}">
+            <div class="heatmap-grid" style="grid-template-columns: 44px repeat({{ chart.x_labels|length }}, minmax(0, 1fr));">
+                <span class="heatmap-corner" aria-hidden="true"></span>
+                {% for label in chart.x_labels %}<span class="heatmap-x">{{ label }}</span>{% endfor %}
+                {% for row in chart.rows %}
+                    <span class="heatmap-y">{{ row.label }}</span>
+                    {% for cell in row.cells %}
+                        <span class="heatmap-cell level-{{ cell.level }}" title="{{ cell.label }}" aria-label="{{ cell.label }}"></span>
+                    {% endfor %}
+                {% endfor %}
+            </div>
+            <div class="heatmap-legend" aria-hidden="true">
+                <span>Menos</span>
+                <i class="level-0"></i><i class="level-1"></i><i class="level-2"></i><i class="level-3"></i><i class="level-4"></i>
+                <span>Más</span>
+            </div>
+        </div>
+    {% elif chart.type == 'mosaic' %}
+        <div class="mosaic" role="img" aria-label="{{ chart.title }}">
+            {% for block in chart.blocks %}
+                <div class="mosaic-block tone-{{ block.tone }}"
+                     style="flex: {{ block.percent }} 1 0;"
+                     title="{{ block.label }}: {{ block.value }} juegos ({{ block.percent }}%)">
+                    <span class="mosaic-label">{{ block.label }}</span>
+                    <strong class="mosaic-value">{{ block.value }}</strong>
+                    <span class="mosaic-share">{{ block.percent }}%</span>
+                </div>
+            {% endfor %}
+        </div>
+    {% else %}
+        <div class="chart-box chart-{{ chart.type|lower }}{% if chart.gauge %} gauge{% endif %}">
+            <canvas id="{{ chart.id }}" role="img" aria-label="{{ chart.title }}"></canvas>
+            {% if chart.gauge %}
+                <strong class="gauge-value">{{ chart.percentage }}%</strong>
+            {% endif %}
+        </div>
+    {% endif %}
+</article>

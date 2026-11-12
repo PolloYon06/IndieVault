@@ -20,7 +20,9 @@
                 </div>
 
                 <div class="detail-actions">
-                    {% if user.is_authenticated %}
+                    {% if user.is_staff %}
+                        <a class="button ghost" href="{% url 'panel_game_edit' game.id %}">Editar en el panel</a>
+                    {% elif user.is_authenticated %}
                         {% if in_library %}
                             <form class="library-action" method="post" action="{% url 'remove_from_library' game.id %}">
                                 {% csrf_token %}

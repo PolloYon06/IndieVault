@@ -54,7 +54,9 @@
                         <div class="tags">
                             {% for tag in game.genre_list %}<span class="tag">{{ tag }}</span>{% endfor %}
                         </div>
-                        {% if user.is_authenticated %}
+                        {% if user.is_staff %}
+                            <a class="button ghost small" href="{% url 'panel_game_edit' game.id %}">Editar en el panel</a>
+                        {% elif user.is_authenticated %}
                             {% if game.id in in_library %}
                                 <form class="library-action" method="post" action="{% url 'remove_from_library' game.id %}">
                                     {% csrf_token %}

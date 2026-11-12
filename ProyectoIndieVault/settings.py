@@ -173,6 +173,10 @@ USE_TZ = True
 
 STATIC_URL = 'static/'
 
+# Archivos subidos por los usuarios (fotos de perfil).
+MEDIA_URL = '/media/'
+MEDIA_ROOT = BASE_DIR / 'media'
+
 # Destino de `collectstatic` en producción (Nginx sirve esta carpeta).
 STATIC_ROOT = Path(
     os.environ.get('DJANGO_STATIC_ROOT', BASE_DIR / 'staticfiles')
