@@ -13,8 +13,18 @@ https://docs.djangoproject.com/en/6.1/ref/settings/
 import os
 from pathlib import Path
 
+try:
+    from dotenv import load_dotenv
+except ImportError:  # La dependencia es opcional fuera del entorno del proyecto.
+    load_dotenv = None
+
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
+
+# Carga .env automáticamente si existe (desarrollo local). Las variables ya
+# definidas en el entorno (producción, systemd) tienen prioridad.
+if load_dotenv is not None:
+    load_dotenv(BASE_DIR / '.env')
 
 
 # Quick-start development settings - unsuitable for production
@@ -101,7 +111,10 @@ else:
     }
     db_ssl_ca = os.environ.get('DJANGO_DB_SSL_CA')
     if db_ssl_ca:
-        db_options['ssl'] = {'ca': db_ssl_ca}
+        ca_path = Path(db_ssl_ca)
+        if not ca_path.is_absolute():
+            ca_path = BASE_DIR / ca_path
+        db_options['ssl'] = {'ca': str(ca_path)}
 
     DATABASES = {
         'default': {
