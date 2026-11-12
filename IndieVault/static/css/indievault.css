@@ -1974,6 +1974,14 @@ a.panel-row-title:hover { color: var(--lime); }
     }
 }
 
+@media (min-width: 1500px) {
+    .panel-stats { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+    .panel-stats .stat-card.wide { grid-column: span 3; }
+
+    .panel-charts .panel-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .panel-charts .panel-stats .stat-card.wide { grid-column: span 2; }
+}
+
 @media (max-width: 860px) {
     .kpi-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
     .panel-split { grid-template-columns: 1fr; }
