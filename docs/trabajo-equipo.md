@@ -12,27 +12,41 @@ autorizada, la conexión dará timeout aunque el `.env` sea correcto.
 
 - Python 3.12 o superior.
 - Git.
-- El archivo `.env` que te comparte el administrador del proyecto (no está en
-  GitHub y no se debe subir).
+- La contraseña de la base de datos, que te da el administrador del proyecto.
+- No hace falta instalar MySQL ni MariaDB.
 
 ## Puesta en marcha
 
 ```bash
 git clone https://github.com/PolloYon06/IndieVault.git
 cd IndieVault
+```
 
-python -m venv indieEnv
-source indieEnv/bin/activate          # En Windows: indieEnv\Scripts\activate
-pip install -r requirements.txt
+Después ejecuta el instalador:
 
-# Guarda el archivo recibido como ".env" en la raíz del proyecto.
-# Debe quedar en la misma carpeta que manage.py.
+- **Windows:** doble clic en `scripts\instalar.bat`
+- **macOS / Linux:** `./scripts/instalar.sh`
+
+El instalador crea el entorno virtual `indieEnv`, instala las dependencias y
+genera el `.env` con el endpoint de RDS, el usuario `indievault_app` y el
+certificado TLS. Solo te pide la contraseña de la base.
+
+Al terminar, arranca la app:
+
+```bash
+# Windows
+indieEnv\Scripts\activate
+# macOS / Linux
+source indieEnv/bin/activate
+
 python manage.py runserver
 ```
 
-La app queda en `http://127.0.0.1:8000/`.
+La app queda en `http://127.0.0.1:8000/`. No hay que crear ni editar el `.env`
+a mano: eso es lo que provoca el error `(2002, "Can't connect to server on
+'127.0.0.1' (10061)")`.
 
-Si el `.env` ya existe y solo cambió alguna dependencia:
+Si más adelante cambia alguna dependencia:
 
 ```bash
 pip install -r requirements.txt
@@ -81,6 +95,15 @@ generen migraciones incompatibles al mismo tiempo.
 - No uses el usuario `admin` de RDS para la app.
 
 ## Problemas de conexión
+
+Primero identifica el mensaje exacto:
+
+| Mensaje | Causa | Solución |
+|---|---|---|
+| `Can't connect to server on '127.0.0.1' (10061)` | No hay `.env`, o está mal nombrado (`\.env.txt`) | Ejecuta otra vez el instalador |
+| `Can't connect ... (10060)` o timeout con el endpoint de RDS | Tu IP no está autorizada, o RDS está apagado | Envía tu IP al administrador |
+| `Access denied for user` (1045) | Contraseña incorrecta | Ejecuta el instalador y pega la contraseña exacta |
+| `Unknown database` (1049) | Falta la base | Avisa al administrador |
 
 Si aparece `Can't connect to MySQL server` o un timeout:
 
