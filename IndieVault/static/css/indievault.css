@@ -88,11 +88,11 @@ body.panel-page .site-footer {
 }
 
 .hero-logo {
-    width: clamp(120px, 22vw, 210px);
-    height: clamp(120px, 22vw, 210px);
+    width: clamp(88px, 13vw, 132px);
+    height: clamp(88px, 13vw, 132px);
     display: block;
-    margin: 0 auto 34px;
-    border-radius: 28px;
+    margin: 0 auto 26px;
+    border-radius: 24px;
     object-fit: cover;
     box-shadow: 0 0 0 1px rgba(214, 243, 106, 0.25), 0 30px 80px rgba(214, 243, 106, 0.12);
 }
@@ -203,7 +203,7 @@ body.panel-page .site-footer {
 /* Portada */
 
 .hero {
-    padding: clamp(76px, 11vw, 132px) 0 88px;
+    padding: clamp(40px, 6vw, 68px) 0 clamp(36px, 5vw, 56px);
     text-align: center;
 }
 
@@ -248,6 +248,25 @@ h1 span.lilac { color: var(--lilac); }
     line-height: 1.7;
 }
 
+.featured { padding-bottom: clamp(44px, 6vw, 68px); }
+
+.featured-head {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 20px;
+    margin-bottom: 20px;
+}
+
+.featured-head h2 {
+    margin: 0;
+    font-size: clamp(1.55rem, 3.2vw, 2.2rem);
+    letter-spacing: -0.055em;
+}
+
+.featured-head .eyebrow { margin-bottom: 10px; }
+.featured-head .back-link { margin-bottom: 0; white-space: nowrap; }
+
 .choice-heading {
     margin: 0 0 16px;
     color: var(--muted);
@@ -260,17 +279,18 @@ h1 span.lilac { color: var(--lilac); }
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 16px;
+    margin-bottom: clamp(36px, 5vw, 56px);
     text-align: left;
 }
 
 .choice-card {
     position: relative;
-    min-height: 250px;
+    min-height: 210px;
     display: flex;
     flex-direction: column;
     align-items: flex-start;
     overflow: hidden;
-    padding: 30px;
+    padding: 26px;
     border: 1px solid var(--line);
     border-radius: 18px;
     background: linear-gradient(145deg, rgba(255,255,255,0.045), transparent 74%), var(--panel);
@@ -309,9 +329,9 @@ h1 span.lilac { color: var(--lilac); }
 }
 
 .choice-card h2 {
-    margin: 28px 0 8px;
-    font-size: clamp(1.5rem, 3vw, 2rem);
-    letter-spacing: -0.055em;
+    margin: 24px 0 8px;
+    font-size: clamp(1.4rem, 2.6vw, 1.85rem);
+    letter-spacing: -0.05em;
 }
 
 .choice-card p {
@@ -479,8 +499,8 @@ a.chip { display: inline-block; text-decoration: none; }
 
 .game-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
-    gap: 16px;
+    grid-template-columns: repeat(auto-fill, minmax(228px, 1fr));
+    gap: 18px;
 }
 
 .game-card {
@@ -488,22 +508,151 @@ a.chip { display: inline-block; text-decoration: none; }
     flex-direction: column;
     overflow: hidden;
     border: 1px solid var(--line);
-    border-radius: 18px;
+    border-radius: 16px;
     background: var(--panel);
-    transition: transform 180ms ease, border-color 180ms ease;
+    transition: transform 200ms ease, border-color 200ms ease, box-shadow 200ms ease;
 }
 
 .game-card:hover {
     transform: translateY(-4px);
-    border-color: rgba(214, 243, 106, 0.45);
+    border-color: rgba(214, 243, 106, 0.42);
+    box-shadow: 0 18px 40px rgba(0, 0, 0, 0.28);
 }
+
+/* Portada de la tarjeta: arte real de Steam sobre un respaldo generado. */
+
+.card-cover {
+    position: relative;
+    aspect-ratio: 3 / 4;
+    overflow: hidden;
+    border-bottom: 1px solid var(--line);
+    background: var(--tint, linear-gradient(150deg, rgba(214, 243, 106, 0.22), transparent 70%));
+}
+
+.card-cover-link {
+    position: absolute;
+    inset: 0;
+    display: block;
+}
+
+.cover-art {
+    position: absolute;
+    inset: 0;
+    z-index: 1;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    transition: transform 420ms ease;
+}
+
+.game-card:hover .cover-art { transform: scale(1.045); }
+
+.cover-fallback {
+    position: absolute;
+    inset: 0;
+    z-index: 0;
+    display: grid;
+    place-items: center;
+    padding: 12px;
+    color: rgba(255, 255, 255, 0.82);
+    font-size: clamp(1.7rem, 4vw, 2.5rem);
+    font-weight: 760;
+    letter-spacing: -0.06em;
+    text-align: center;
+}
+
+.card-cover-overlay {
+    position: absolute;
+    inset: auto 0 0;
+    z-index: 2;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    padding: 46px 14px 14px;
+    background: linear-gradient(to top, rgba(6, 7, 14, 0.94), rgba(6, 7, 14, 0));
+    color: #fff;
+    opacity: 0;
+    transform: translateY(8px);
+    transition: opacity 220ms ease, transform 220ms ease;
+}
+
+.game-card:hover .card-cover-overlay,
+.game-card:focus-within .card-cover-overlay {
+    opacity: 1;
+    transform: none;
+}
+
+.card-cover-title {
+    font-size: 0.96rem;
+    font-weight: 720;
+    letter-spacing: -0.03em;
+    line-height: 1.25;
+}
+
+.card-cover-studio {
+    color: rgba(255, 255, 255, 0.72);
+    font-size: 0.76rem;
+}
+
+/* Acción rápida sobre la portada: guardar, quitar o editar. */
+
+.quick-action {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    z-index: 3;
+    margin: 0;
+}
+
+a.quick-action,
+.quick-action button {
+    width: 38px;
+    height: 38px;
+    display: grid;
+    place-items: center;
+    padding: 0;
+    border: 1px solid rgba(255, 255, 255, 0.28);
+    border-radius: 50%;
+    background: rgba(9, 10, 18, 0.68);
+    backdrop-filter: blur(8px);
+    color: #fff;
+    font: inherit;
+    font-size: 1.18rem;
+    font-weight: 700;
+    line-height: 1;
+    text-decoration: none;
+    cursor: pointer;
+    transition: background-color 160ms ease, border-color 160ms ease, color 160ms ease, transform 160ms ease;
+}
+
+a.quick-action:hover,
+.quick-action button:hover {
+    border-color: var(--lime);
+    background: var(--lime);
+    color: #14150a;
+    transform: scale(1.06);
+}
+
+.quick-action button.in-library {
+    border-color: var(--lime);
+    background: var(--lime);
+    color: #14150a;
+}
+
+.quick-action button.in-library:hover {
+    border-color: #ff6b6b;
+    background: #ff6b6b;
+    color: #1a0808;
+}
+
+/* Portada antigua, todavía usada por el panel de estudio. */
 
 .cover {
     aspect-ratio: 3 / 4;
     display: grid;
     place-items: center;
     border-bottom: 1px solid var(--line);
-    background: linear-gradient(150deg, var(--tint, rgba(214, 243, 106, 0.22)), transparent 70%);
+    background: var(--tint, linear-gradient(150deg, rgba(214, 243, 106, 0.22), transparent 70%));
     color: var(--ink);
     font-size: 2rem;
     text-decoration: none;
@@ -513,29 +662,42 @@ a.chip { display: inline-block; text-decoration: none; }
 
 .cover:hover { opacity: 1; }
 
-.game-body { padding: 20px; }
+.game-body {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    padding: 14px 15px 16px;
+}
 
 .game-body h3 {
-    margin: 0 0 5px;
-    font-size: 1.06rem;
-    letter-spacing: -0.04em;
+    margin: 0 0 4px;
+    font-size: 1rem;
+    letter-spacing: -0.035em;
+    line-height: 1.25;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
 }
 
 .game-body h3 a { text-decoration: none; }
 .game-body h3 a:hover { color: var(--lime); }
 
 .game-meta {
-    margin: 0 0 14px;
+    margin: 0 0 10px;
+    overflow: hidden;
     color: var(--muted);
     font-size: 0.79rem;
-    font-weight: 600;
-    letter-spacing: 0.04em;
-    text-transform: uppercase;
+    font-weight: 500;
+    letter-spacing: 0;
+    text-overflow: ellipsis;
+    text-transform: none;
+    white-space: nowrap;
 }
 
 .price {
-    margin: -8px 0 14px;
-    font-size: 1.06rem;
+    margin: 0 0 10px;
+    font-size: 0.98rem;
     font-weight: 750;
     letter-spacing: -0.03em;
 }
@@ -543,6 +705,7 @@ a.chip { display: inline-block; text-decoration: none; }
 .price.free { color: var(--lime); }
 
 .tags {
+    margin-top: auto;
     display: flex;
     flex-wrap: wrap;
     gap: 6px;
@@ -733,7 +896,34 @@ a.chip { display: inline-block; text-decoration: none; }
 /* Página de detalle */
 
 .detail {
+    position: relative;
+    isolation: isolate;
     padding: clamp(48px, 7vw, 88px) 0 clamp(70px, 9vw, 110px);
+}
+
+/* Resplandor con el arte horizontal del juego detrás de la ficha. */
+
+.detail-glow {
+    position: absolute;
+    inset: 0 0 auto;
+    z-index: -1;
+    height: 480px;
+    overflow: hidden;
+    background: var(--tint, none);
+    opacity: 0.34;
+    pointer-events: none;
+    -webkit-mask-image: radial-gradient(ellipse 70% 72% at 32% 48%, #000 8%, transparent 74%);
+    mask-image: radial-gradient(ellipse 70% 72% at 32% 48%, #000 8%, transparent 74%);
+}
+
+:root[data-theme="light"] .detail-glow { opacity: 0.22; }
+
+.detail-glow-art {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    filter: blur(56px) saturate(1.35);
+    transform: scale(1.18);
 }
 
 .back-link {
@@ -757,14 +947,16 @@ a.chip { display: inline-block; text-decoration: none; }
 }
 
 .detail-cover {
+    position: relative;
     aspect-ratio: 3 / 4;
-    display: grid;
-    place-items: center;
+    overflow: hidden;
     border: 1px solid var(--line);
     border-radius: 22px;
-    background: linear-gradient(150deg, var(--tint, rgba(214, 243, 106, 0.22)), transparent 70%);
-    font-size: clamp(3.4rem, 8vw, 5rem);
+    background: var(--tint, linear-gradient(150deg, rgba(214, 243, 106, 0.22), transparent 70%));
+    box-shadow: 0 24px 60px rgba(0, 0, 0, 0.35);
 }
+
+.detail-cover .cover-fallback { font-size: clamp(2.6rem, 6vw, 4rem); }
 
 .detail-info h1 {
     margin: 0 0 6px;
@@ -1032,9 +1224,16 @@ a.chip { display: inline-block; text-decoration: none; }
     .site-nav a { font-size: 0.78rem; }
     .nav-logout button { font-size: 0.78rem; }
     .nav-user { display: none; }
-    .hero { padding: 78px 0 62px; }
+    .hero { padding: 38px 0 44px; }
     .choices { grid-template-columns: 1fr; }
-    .choice-card { min-height: 225px; padding: 25px; }
+    .choice-card { min-height: 200px; padding: 22px; }
+    .featured-head { flex-direction: column; align-items: flex-start; gap: 8px; }
+    .game-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+    .game-body { padding: 12px 12px 14px; }
+    .game-body h3 { font-size: 0.92rem; }
+    a.quick-action, .quick-action button { width: 34px; height: 34px; }
+    .detail-layout { grid-template-columns: 1fr; }
+    .detail-cover { width: min(260px, 70%); margin-inline: auto; }
     .destination { grid-template-columns: 1fr; gap: 16px; }
     .shelf-head { flex-direction: column; align-items: flex-start; gap: 6px; }
     .entry { flex-wrap: wrap; }
@@ -1162,6 +1361,8 @@ a.chip { display: inline-block; text-decoration: none; }
     color: var(--muted);
     line-height: 1.7;
 }
+
+.detail-description-empty { font-style: italic; opacity: 0.85; }
 
 @media (max-width: 640px) {
     .studio-bar { flex-direction: column; align-items: flex-start; }

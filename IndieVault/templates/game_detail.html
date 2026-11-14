@@ -1,19 +1,32 @@
 {% extends 'base.html' %}
+{% load indievault_tags %}
 
 {% block title %}{{ game.title }} · IndieVault{% endblock %}
 
 {% block content %}
     <section class="detail" aria-labelledby="detail-title">
+        <div class="detail-glow" aria-hidden="true" style="--tint: {{ game|cover_tint }}">
+            {% with art=game|steam_cover:'header' %}
+                {% if art %}
+                    <img class="detail-glow-art" src="{{ art }}" alt="" loading="eager" decoding="async" onerror="this.remove()">
+                {% endif %}
+            {% endwith %}
+        </div>
+
         <a class="back-link" href="{% url 'explorar' %}">← Volver a Explorar</a>
 
         <div class="detail-layout">
-            <div class="detail-cover" style="--tint: {{ game.tint }}" aria-hidden="true">{{ game.symbol }}</div>
+            <div class="detail-cover" style="--tint: {{ game|cover_tint }}">
+                {% include 'partials/_cover_media.html' with game=game asset_size='portrait' cover_loading='eager' %}
+            </div>
             <div class="detail-info">
                 <h1 id="detail-title">{{ game.title }}</h1>
-                <p class="detail-studio">{{ game.studio }} · {{ game.year }}</p>
+                <p class="detail-studio">{% if game.studio %}{{ game.studio }}{% endif %}{% if game.year %} · {{ game.year }}{% endif %}</p>
                 <p class="detail-price{% if game.is_free %} free{% endif %}">{% if game.is_free %}Gratis{% else %}${{ game.price|stringformat:'.2f' }}{% endif %}</p>
                 {% if game.description %}
                     <p class="detail-description">{{ game.description }}</p>
+                {% else %}
+                    <p class="detail-description detail-description-empty">Todavía no hay una descripción de este juego. Los datos del catálogo se importaron de Steam y el equipo los irá completando desde el panel.</p>
                 {% endif %}
                 <div class="tags detail-tags">
                     {% for tag in game.genre_list %}<span class="tag">{{ tag }}</span>{% endfor %}
@@ -44,19 +57,10 @@
 
     {% if related %}
         <section class="page-shell" aria-labelledby="related-title">
-            <div class="results-count">Comparten género</div>
+            <h2 class="results-count" id="related-title">Comparten género</h2>
             <div class="game-grid">
                 {% for g in related %}
-                    <article class="game-card">
-                        <a class="cover" href="{% url 'game_detail' g.slug %}" style="--tint: {{ g.tint }}" aria-label="{{ g.title }}">
-                            {{ g.symbol }}
-                        </a>
-                        <div class="game-body">
-                            <h3><a href="{% url 'game_detail' g.slug %}">{{ g.title }}</a></h3>
-                            <p class="game-meta">{{ g.studio }} · {{ g.year }}</p>
-                            <p class="price{% if g.is_free %} free{% endif %}">{% if g.is_free %}Gratis{% else %}${{ g.price|stringformat:'.2f' }}{% endif %}</p>
-                        </div>
-                    </article>
+                    {% include 'partials/_game_card.html' with game=g in_library=related_in_library cover_loading='eager' %}
                 {% endfor %}
             </div>
         </section>

@@ -1,0 +1,25 @@
+{% load indievault_tags %}
+{% comment %}
+    Portada de un juego con respaldo generado.
+
+    Se incluye dentro de un contenedor posicionado (.card-cover, .detail-cover).
+    La imagen queda por encima del respaldo: si no existe o falla, se elimina y
+    queda visible el degradado con las iniciales.
+
+    Parámetros:
+        game        juego (obligatorio)
+        asset_size  'portrait' (por defecto) o 'header'
+        loading     'lazy' (por defecto) o 'eager'
+{% endcomment %}
+{% with art=game|steam_cover:asset_size %}
+    <span class="cover-fallback" aria-hidden="true">{{ game|cover_initials }}</span>
+    {% if art %}
+        {% if asset_size == 'header' %}
+            <img class="cover-art" src="{{ art }}" alt="" loading="{{ cover_loading|default:'lazy' }}"
+                 decoding="async" width="460" height="215" onerror="this.remove()">
+        {% else %}
+            <img class="cover-art" src="{{ art }}" alt="" loading="{{ cover_loading|default:'lazy' }}"
+                 decoding="async" width="600" height="900" onerror="this.remove()">
+        {% endif %}
+    {% endif %}
+{% endwith %}

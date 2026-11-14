@@ -19,7 +19,22 @@ from .stats import user_stats
 
 
 def index(request):
-    return render(request, 'index.html')
+    # Solo juegos con app id de Steam: son los que tienen portada real. El
+    # orden por id aprovecha el índice primario y muestra lo último importado.
+    featured = list(
+        Game.objects.exclude(steam_app_id__isnull=True).order_by('-id')[:8]
+    )
+    if request.user.is_authenticated:
+        in_library = set(
+            LibraryEntry.objects.filter(user=request.user, game__in=featured)
+            .values_list('game_id', flat=True)
+        )
+    else:
+        in_library = set()
+    return render(request, 'index.html', {
+        'featured': featured,
+        'in_library': in_library,
+    })
 
 
 def explorar(request):
@@ -90,12 +105,19 @@ def game_detail(request, slug):
         )
     if request.user.is_authenticated:
         in_library = LibraryEntry.objects.filter(user=request.user, game=game).first()
+        related_ids = [related_game.pk for related_game in related]
+        related_in_library = set(
+            LibraryEntry.objects.filter(user=request.user, game_id__in=related_ids)
+            .values_list('game_id', flat=True)
+        )
     else:
         in_library = None
+        related_in_library = set()
     return render(request, 'game_detail.html', {
         'game': game,
         'related': related,
         'in_library': in_library,
+        'related_in_library': related_in_library,
     })
 
 

@@ -1,0 +1,56 @@
+{% load indievault_tags %}
+{% comment %}
+    Tarjeta de juego del catálogo.
+
+    Espera `game` y, opcionalmente, `in_library` (conjunto de ids guardados por
+    la persona que navega). La acción rápida sobre la portada cambia según el
+    rol: añadir/quitar de la biblioteca, editar en el panel o iniciar sesión.
+{% endcomment %}
+<article class="game-card">
+    <div class="card-cover" style="--tint: {{ game|cover_tint }}">
+        <a class="card-cover-link" href="{% url 'game_detail' game.slug %}" aria-label="Ver la ficha de {{ game.title }}">
+            {% include 'partials/_cover_media.html' with game=game asset_size='portrait' cover_loading=cover_loading %}
+            <span class="card-cover-overlay" aria-hidden="true">
+                <span class="card-cover-title">{{ game.title }}</span>
+                <span class="card-cover-studio">{{ game.studio }}</span>
+            </span>
+        </a>
+
+        {% if user.is_staff %}
+            <a class="quick-action" href="{% url 'panel_game_edit' game.id %}"
+               title="Editar {{ game.title }} en el panel"
+               aria-label="Editar {{ game.title }} en el panel">✎</a>
+        {% elif user.is_authenticated %}
+            {% if game.id in in_library %}
+                <form class="quick-action" method="post" action="{% url 'remove_from_library' game.id %}">
+                    {% csrf_token %}
+                    <button class="in-library" type="submit"
+                            title="Quitar de la biblioteca"
+                            aria-label="Quitar de la biblioteca: {{ game.title }}">✓</button>
+                </form>
+            {% else %}
+                <form class="quick-action" method="post" action="{% url 'add_to_library' game.id %}">
+                    {% csrf_token %}
+                    <button type="submit"
+                            title="Añadir a biblioteca"
+                            aria-label="Añadir a biblioteca: {{ game.title }}">+</button>
+                </form>
+            {% endif %}
+        {% else %}
+            <a class="quick-action" href="{% url 'login' %}?next={{ request.get_full_path|urlencode }}"
+               title="Inicia sesión para guardar"
+               aria-label="Inicia sesión para guardar {{ game.title }}">+</a>
+        {% endif %}
+    </div>
+
+    <div class="game-body">
+        <h3><a href="{% url 'game_detail' game.slug %}">{{ game.title }}</a></h3>
+        <p class="game-meta">{% if game.studio %}{{ game.studio }}{% endif %}{% if game.year %} · {{ game.year }}{% endif %}</p>
+        <p class="price{% if game.is_free %} free{% endif %}">{% if game.is_free %}Gratis{% else %}${{ game.price|stringformat:'.2f' }}{% endif %}</p>
+        {% if game.genres %}
+            <div class="tags">
+                {% for tag in game.genre_list|slice:":2" %}<span class="tag">{{ tag }}</span>{% endfor %}
+            </div>
+        {% endif %}
+    </div>
+</article>
