@@ -37,6 +37,8 @@
 
 {% block auth_links %}
     <div class="auth-links">
+        <a href="{% url 'register' %}">Crear una cuenta</a>
+        <span class="auth-sep">·</span>
         <a href="{% url 'enterprise_login' %}">¿Publicas juegos? Acceso para empresas</a>
         <span class="auth-sep">·</span>
         <a href="{% url 'index' %}">Volver al inicio</a>

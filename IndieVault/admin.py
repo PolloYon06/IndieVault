@@ -1,6 +1,13 @@
 from django.contrib import admin
 
-from .models import Enterprise, Game, LibraryEntry, Profile
+from .models import (
+    Discussion,
+    DiscussionReply,
+    Enterprise,
+    Game,
+    LibraryEntry,
+    Profile,
+)
 
 
 @admin.register(Game)
@@ -53,3 +60,24 @@ class ProfileAdmin(admin.ModelAdmin):
     search_fields = [
         'user__username', 'user__email', 'user__first_name', 'user__last_name',
     ]
+
+
+@admin.register(Discussion)
+class DiscussionAdmin(admin.ModelAdmin):
+    list_display = [
+        'title', 'game', 'author', 'category', 'is_pinned', 'is_locked',
+        'last_activity_at',
+    ]
+    list_filter = ['category', 'is_pinned', 'is_locked']
+    search_fields = ['title', 'body', 'author__username', 'game__title']
+    autocomplete_fields = ['game', 'author']
+    list_per_page = 25
+
+
+@admin.register(DiscussionReply)
+class DiscussionReplyAdmin(admin.ModelAdmin):
+    list_display = ['discussion', 'author', 'created_at']
+    search_fields = ['body', 'author__username', 'discussion__title']
+    autocomplete_fields = ['discussion', 'author']
+    list_per_page = 25
+

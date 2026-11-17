@@ -1,0 +1,31 @@
+{% load indievault_tags %}
+<article class="thread-row">
+    <div class="thread-badges">
+        <span class="badge">{{ thread.get_category_display }}</span>
+        {% if thread.is_pinned %}<span class="badge lilac">Fijado</span>{% endif %}
+        {% if thread.is_locked %}<span class="badge warn">Cerrado</span>{% endif %}
+    </div>
+
+    <h2 class="thread-row-title">
+        <a href="{{ thread.get_absolute_url }}">{{ thread.title }}</a>
+    </h2>
+
+    {% if thread.game %}
+        <p class="thread-row-game">en <a href="{% url 'game_detail' thread.game.slug %}">{{ thread.game.title }}</a></p>
+    {% endif %}
+
+    <div class="thread-row-foot">
+        <a class="thread-author" href="{% url 'public_profile' thread.author.username %}">
+            {% with avatar=thread.author|avatar_url %}
+                {% if avatar %}
+                    <img class="thread-avatar" src="{{ avatar }}" alt="">
+                {% else %}
+                    <span class="thread-avatar thread-avatar-fallback" aria-hidden="true">{{ thread.author|initials }}</span>
+                {% endif %}
+            {% endwith %}
+            <span>{{ thread.author|display_name }}</span>
+        </a>
+        <span>{{ thread.reply_count }} comentario{{ thread.reply_count|pluralize }}</span>
+        <span>Última actividad {{ thread.last_activity_at|date:"d M Y, H:i" }}</span>
+    </div>
+</article>

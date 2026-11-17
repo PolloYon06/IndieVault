@@ -3,6 +3,7 @@
 
 {% block panel_content %}
 <div class="panel-actions">
+    <a class="button" href="{% url 'panel_user_create' %}">Crear cuenta</a>
     <a class="button ghost" href="{% url 'panel_users_export' %}{% querystring %}">Exportar CSV</a>
 </div>
 

@@ -1,0 +1,155 @@
+{% extends 'base.html' %}
+{% load indievault_tags %}
+
+{% block title %}{{ profile_user|display_name }} · IndieVault{% endblock %}
+
+{% block content %}
+<section class="page-head profile-public-head">
+    <p class="eyebrow">Perfil de la comunidad</p>
+    <h1>{{ profile_user|display_name }}</h1>
+</section>
+
+<section class="page-shell">
+    {% if is_self %}
+        <p class="public-self-note">Así ve tu perfil el resto de la comunidad. <a href="{% url 'privacy' %}">Cambiar privacidad</a></p>
+    {% endif %}
+
+    <div class="profile-layout">
+        <aside class="profile-card" aria-labelledby="profile-name">
+            {% if is_private %}
+                <span class="profile-lock" aria-hidden="true">◍</span>
+                <h2 class="profile-name" id="profile-name">{{ profile_user|display_name }}</h2>
+                <p class="profile-handle">@{{ profile_user.username }}</p>
+                <p class="profile-bio">
+                    {% if profile.visibility == 'members' and not user.is_authenticated %}
+                        Este perfil solo está visible para cuentas registradas.
+                    {% else %}
+                        Esta persona decidió mantener su perfil privado.
+                    {% endif %}
+                </p>
+                {% if not user.is_authenticated and profile.visibility == 'members' %}
+                    <div class="profile-links">
+                        <a class="button small" href="{% url 'login' %}?next={{ request.get_full_path|urlencode }}">Iniciar sesión</a>
+                    </div>
+                {% endif %}
+            {% else %}
+                {% with avatar=profile_user|avatar_url %}
+                    {% if avatar %}
+                        <img class="profile-avatar-lg" src="{{ avatar }}" alt="Foto de {{ profile_user|display_name }}">
+                    {% else %}
+                        <span class="profile-avatar-lg profile-avatar-fallback" aria-hidden="true">{{ profile_user|initials }}</span>
+                    {% endif %}
+                {% endwith %}
+
+                <h2 class="profile-name" id="profile-name">{{ profile_user|display_name }}</h2>
+                <p class="profile-handle">@{{ profile_user.username }}</p>
+
+                {% if profile.bio %}
+                    <p class="profile-bio">{{ profile.bio }}</p>
+                {% else %}
+                    <p class="profile-bio profile-bio-empty">Todavía no hay una presentación.</p>
+                {% endif %}
+
+                <div class="profile-meta">
+                    <span>Miembro desde {{ profile_user.date_joined|date:"M Y" }}</span>
+                    {% if profile_user.is_staff %}<span>Equipo de IndieVault</span>{% endif %}
+                </div>
+
+                {% if is_self %}
+                    <div class="profile-links">
+                        <a class="button ghost small" href="{% url 'perfil' %}">Editar perfil</a>
+                        <a class="button ghost small" href="{% url 'privacy' %}">Privacidad</a>
+                        <a class="button ghost small" href="{% url 'security' %}">Seguridad</a>
+                    </div>
+                {% endif %}
+            {% endif %}
+        </aside>
+
+        <div class="profile-public-main">
+            {% if is_private %}
+                <div class="empty-state profile-private">
+                    <span class="profile-lock" aria-hidden="true">◍</span>
+                    <h2>Perfil privado</h2>
+                    <p>No hay secciones públicas que mostrar. Si conoces a esta persona, puedes escribirle en la comunidad.</p>
+                    <a class="button ghost" href="{% url 'community' %}">Ir a la comunidad</a>
+                </div>
+            {% else %}
+                {% if profile.show_stats %}
+                    <section class="profile-section" aria-labelledby="public-stats-title">
+                        <div class="section-head">
+                            <h2 id="public-stats-title">Estadísticas</h2>
+                            <span class="section-note">Cobertura del catálogo: {{ summary.coverage }}%</span>
+                        </div>
+                        <div class="public-stats">
+                            <div class="public-stat"><strong>{{ summary.total }}</strong><span>juegos guardados</span></div>
+                            <div class="public-stat"><strong>{{ summary.want }}</strong><span>pendientes</span></div>
+                            <div class="public-stat"><strong>{{ summary.playing }}</strong><span>en curso</span></div>
+                            <div class="public-stat"><strong>{{ summary.done }}</strong><span>terminados</span></div>
+                        </div>
+                        {% if summary.genres %}
+                            <div class="public-genres">
+                                <span class="section-note">Géneros favoritos</span>
+                                <div class="tags">
+                                    {% for genre, count in summary.genres %}
+                                        <span class="tag">{{ genre }} · {{ count }}</span>
+                                    {% endfor %}
+                                </div>
+                            </div>
+                        {% endif %}
+                    </section>
+                {% endif %}
+
+                {% if profile.show_library %}
+                    <section class="profile-section" aria-labelledby="public-library-title">
+                        <div class="section-head">
+                            <h2 id="public-library-title">Biblioteca</h2>
+                            <span class="section-note">Últimos juegos guardados</span>
+                        </div>
+                        <div class="public-library">
+                            {% for entry in library_entries %}
+                                <a class="public-library-row" href="{% url 'game_detail' entry.game.slug %}">
+                                    <span class="public-library-title">{{ entry.game.title }}</span>
+                                    <span class="public-library-studio">{{ entry.game.studio }}</span>
+                                    <span class="status{% if entry.status == 'En curso' %} playing{% elif entry.status == 'Terminado' %} done{% endif %}">{{ entry.status }}</span>
+                                </a>
+                            {% empty %}
+                                <p class="community-empty">Todavía no ha guardado juegos.</p>
+                            {% endfor %}
+                        </div>
+                    </section>
+                {% endif %}
+
+                {% if profile.show_discussions %}
+                    <section class="profile-section" aria-labelledby="public-activity-title">
+                        <div class="section-head">
+                            <h2 id="public-activity-title">Actividad en la comunidad</h2>
+                            <a class="section-link" href="{% url 'community' %}">Ver la comunidad</a>
+                        </div>
+                        <div class="public-activity">
+                            {% for thread in recent_discussions %}
+                                <a class="public-thread-row" href="{{ thread.get_absolute_url }}">
+                                    <span class="public-thread-title">{{ thread.title }}</span>
+                                    <span class="public-thread-meta">
+                                        {% if thread.game %}{{ thread.game.title }} · {% endif %}
+                                        {{ thread.reply_count }} comentario{{ thread.reply_count|pluralize }}
+                                        · {{ thread.last_activity_at|date:"d M Y" }}
+                                    </span>
+                                </a>
+                            {% empty %}
+                                <p class="community-empty">Todavía no ha participado en la comunidad.</p>
+                            {% endfor %}
+                        </div>
+                    </section>
+                {% endif %}
+
+                {% if not profile.show_stats and not profile.show_library and not profile.show_discussions %}
+                    <div class="empty-state">
+                        <h2>Perfil sin secciones públicas</h2>
+                        <p>Esta persona comparte su nombre, pero decidió ocultar su biblioteca, sus estadísticas y su actividad.</p>
+                    </div>
+                {% endif %}
+            {% endif %}
+        </div>
+    </div>
+</section>
+{% endblock %}

@@ -1,10 +1,11 @@
 from django import forms
 from django.contrib.auth import get_user_model
+from django.contrib.auth.forms import UserCreationForm
 from django.contrib.auth.password_validation import validate_password
 from django.core.exceptions import ValidationError
 
 from .appearance import DEFAULT_ACCENT, HEX_RE, dominant_accent, prepare_avatar
-from .models import Enterprise, Game, Profile
+from .models import Discussion, DiscussionReply, Enterprise, Game, Profile
 
 
 class EnterpriseSignupForm(forms.Form):
@@ -88,6 +89,62 @@ class EnterpriseSignupForm(forms.Form):
             website=data.get('website') or '',
             description=data.get('description') or '',
         )
+
+
+class AccountCreateForm(UserCreationForm):
+    """Registro de jugador con usuario y contraseña, sin pedir correo."""
+
+    class Meta(UserCreationForm.Meta):
+        model = get_user_model()
+        fields = ('username',)
+        labels = {
+            'username': 'Usuario',
+        }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields['username'].widget.attrs.update({
+            'class': 'form-control',
+            'autocomplete': 'username',
+            'autocapitalize': 'none',
+            'autofocus': True,
+            'placeholder': 'Elige un nombre de usuario',
+        })
+        self.fields['password1'].widget.attrs.update({
+            'class': 'form-control',
+            'autocomplete': 'new-password',
+        })
+        self.fields['password2'].widget.attrs.update({
+            'class': 'form-control',
+            'autocomplete': 'new-password',
+        })
+        self.fields['username'].help_text = (
+            'Hasta 150 caracteres. Puedes usar letras, números y @/./+/-/_.'
+        )
+
+    def clean_username(self):
+        username = self.cleaned_data['username'].strip()
+        if get_user_model().objects.filter(username__iexact=username).exists():
+            raise ValidationError('Ese usuario ya está en uso.')
+        return username
+
+
+class AdminAccountCreateForm(AccountCreateForm):
+    """Creación de cuentas desde el panel, con opción de dar acceso staff."""
+
+    is_staff = forms.BooleanField(
+        required=False,
+        label='Cuenta de personal',
+        help_text='Podrá entrar al panel de administración de IndieVault.',
+        widget=forms.CheckboxInput(attrs={'class': 'form-check-input'}),
+    )
+
+    def save(self, commit=True):
+        user = super().save(commit=commit)
+        if commit and self.cleaned_data.get('is_staff'):
+            user.is_staff = True
+            user.save(update_fields=['is_staff'])
+        return user
 
 
 class GameForm(forms.ModelForm):
@@ -266,3 +323,96 @@ class AppearanceForm(forms.ModelForm):
         if commit:
             profile.save()
         return profile
+
+
+class PrivacyForm(forms.ModelForm):
+    """Controla quién puede ver el perfil y qué secciones comparte."""
+
+    class Meta:
+        model = Profile
+        fields = ['visibility', 'show_library', 'show_stats', 'show_discussions']
+        widgets = {
+            'visibility': forms.Select(attrs={'class': 'form-control'}),
+        }
+        labels = {
+            'visibility': 'Visibilidad del perfil',
+            'show_library': 'Mostrar mi biblioteca',
+            'show_stats': 'Mostrar mis estadísticas',
+            'show_discussions': 'Mostrar mi actividad en la comunidad',
+        }
+        help_texts = {
+            'visibility': 'Decide quién puede abrir tu perfil público.',
+            'show_library': 'Tus juegos y sus estados aparecerán en tu perfil.',
+            'show_stats': 'Se mostrará un resumen de tu progreso y géneros.',
+            'show_discussions': (
+                'Solo afecta a la lista de tu perfil. Tus temas y comentarios '
+                'siguen siendo visibles en la comunidad.'
+            ),
+        }
+
+
+class DiscussionForm(forms.ModelForm):
+    """Nuevo tema del panel de comunidad."""
+
+    class Meta:
+        model = Discussion
+        fields = ['title', 'body', 'category']
+        widgets = {
+            'title': forms.TextInput(attrs={
+                'placeholder': '¿De qué quieres hablar?',
+                'maxlength': 140,
+            }),
+            'body': forms.Textarea(attrs={
+                'rows': 7,
+                'placeholder': 'Cuenta tu experiencia, pregunta o idea…',
+            }),
+            'category': forms.Select(),
+        }
+        labels = {
+            'title': 'Título',
+            'body': 'Mensaje',
+            'category': 'Categoría',
+        }
+        help_texts = {
+            'body': 'Puedes escribir hasta 8000 caracteres.',
+        }
+
+    def clean_title(self):
+        title = self.cleaned_data.get('title', '').strip()
+        if len(title) < 4:
+            raise ValidationError('El título necesita al menos 4 caracteres.')
+        return title
+
+    def clean_body(self):
+        body = self.cleaned_data.get('body', '').strip()
+        if len(body) < 10:
+            raise ValidationError('El mensaje necesita al menos 10 caracteres.')
+        if len(body) > 8000:
+            raise ValidationError('El mensaje no puede superar los 8000 caracteres.')
+        return body
+
+
+class DiscussionReplyForm(forms.ModelForm):
+    """Comentario dentro de un tema."""
+
+    class Meta:
+        model = DiscussionReply
+        fields = ['body']
+        widgets = {
+            'body': forms.Textarea(attrs={
+                'rows': 4,
+                'placeholder': 'Escribe tu comentario…',
+                'maxlength': 4000,
+            }),
+        }
+        labels = {
+            'body': 'Tu comentario',
+        }
+
+    def clean_body(self):
+        body = self.cleaned_data.get('body', '').strip()
+        if len(body) < 2:
+            raise ValidationError('Escribe al menos un par de caracteres.')
+        if len(body) > 4000:
+            raise ValidationError('El comentario no puede superar los 4000 caracteres.')
+        return body

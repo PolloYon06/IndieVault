@@ -42,7 +42,10 @@
                     <a class="button ghost small" href="{% url 'estadisticas' %}">Mis estadísticas</a>
                     <a class="button ghost small" href="{% url 'biblioteca' %}">Mi biblioteca</a>
                 {% endif %}
+                <a class="button ghost small" href="{% url 'public_profile' user.username %}">Ver perfil público</a>
                 <a class="button ghost small" href="{% url 'apariencia' %}">Apariencia</a>
+                <a class="button ghost small" href="{% url 'privacy' %}">Privacidad</a>
+                <a class="button ghost small" href="{% url 'security' %}">Seguridad</a>
             </div>
         </aside>
 

@@ -1,5 +1,6 @@
 import base64
 import csv
+import json
 import tempfile
 from io import BytesIO
 from pathlib import Path
@@ -13,7 +14,14 @@ from django.test import Client, TestCase, override_settings
 from django.urls import reverse
 from PIL import Image as PILImage
 
-from .models import Enterprise, Game, LibraryEntry, Profile
+from .models import (
+    Discussion,
+    DiscussionReply,
+    Enterprise,
+    Game,
+    LibraryEntry,
+    Profile,
+)
 from .stats import admin_stats, user_stats
 from .templatetags.indievault_tags import avatar_url
 
@@ -1320,3 +1328,475 @@ class AppearanceTests(TestCase):
         self.assertRegex(accent, r'^#[0-9a-f]{6}$')
         red, green, blue = (int(accent[i:i + 2], 16) for i in (1, 3, 5))
         self.assertGreater(blue, red)
+
+
+class AccountCreationTests(TestCase):
+    def setUp(self):
+        self.client = Client()
+        self.User = get_user_model()
+        self.staff = self.User.objects.create_user(
+            username='cuentas-staff',
+            password='ClaveStaff-2026!',
+            is_staff=True,
+        )
+        self.player = self.User.objects.create_user(
+            username='cuentas-jugador',
+            password='ClaveJugador-2026!',
+        )
+
+    def test_register_page_has_username_and_password_but_no_email(self):
+        response = self.client.get(reverse('register'))
+        self.assertEqual(response.status_code, 200)
+        self.assertTemplateUsed(response, 'register.html')
+        self.assertContains(response, 'name="username"')
+        self.assertContains(response, 'name="password1"')
+        self.assertContains(response, 'name="password2"')
+        self.assertNotContains(response, 'name="email"')
+
+    def test_register_creates_user_without_email_and_logs_in(self):
+        response = self.client.post(reverse('register'), {
+            'username': 'nueva-cuenta',
+            'password1': 'ClaveNueva-2026!',
+            'password2': 'ClaveNueva-2026!',
+        })
+        self.assertRedirects(response, reverse('index'))
+        account = self.User.objects.get(username='nueva-cuenta')
+        self.assertEqual(account.email, '')
+        self.assertIn('_auth_user_id', self.client.session)
+        self.assertTrue(Profile.objects.filter(user=account).exists())
+
+    def test_register_rejects_duplicate_username_ignoring_case(self):
+        self.User.objects.create_user(
+            username='CuentaUnica', password='ClaveUnica-2026!'
+        )
+        response = self.client.post(reverse('register'), {
+            'username': 'cuentaunica',
+            'password1': 'ClaveNueva-2026!',
+            'password2': 'ClaveNueva-2026!',
+        })
+        self.assertEqual(response.status_code, 200)
+        self.assertIn('username', response.context['form'].errors)
+
+    def test_register_rejects_weak_password(self):
+        response = self.client.post(reverse('register'), {
+            'username': 'clave-debil',
+            'password1': '12345678',
+            'password2': '12345678',
+        })
+        self.assertEqual(response.status_code, 200)
+        self.assertFalse(self.User.objects.filter(username='clave-debil').exists())
+        self.assertTrue(
+            response.context['form'].errors.get('password1')
+            or response.context['form'].errors.get('password2')
+        )
+
+    def test_register_rejects_mismatched_passwords(self):
+        response = self.client.post(reverse('register'), {
+            'username': 'clave-distinta',
+            'password1': 'ClaveNueva-2026!',
+            'password2': 'OtraClave-2026!',
+        })
+        self.assertEqual(response.status_code, 200)
+        self.assertFalse(self.User.objects.filter(username='clave-distinta').exists())
+
+    def test_panel_account_create_requires_staff(self):
+        self.client.force_login(self.player)
+        response = self.client.get(reverse('panel_user_create'))
+        self.assertEqual(response.status_code, 403)
+
+    def test_panel_account_create_makes_player_without_email(self):
+        self.client.force_login(self.staff)
+        response = self.client.post(reverse('panel_user_create'), {
+            'username': 'panel-jugador',
+            'password1': 'ClavePanel-2026!',
+            'password2': 'ClavePanel-2026!',
+        })
+        self.assertRedirects(response, reverse('panel_users'))
+        account = self.User.objects.get(username='panel-jugador')
+        self.assertEqual(account.email, '')
+        self.assertFalse(account.is_staff)
+
+    def test_panel_account_create_can_mark_staff(self):
+        self.client.force_login(self.staff)
+        response = self.client.post(reverse('panel_user_create'), {
+            'username': 'panel-staff',
+            'password1': 'ClavePanel-2026!',
+            'password2': 'ClavePanel-2026!',
+            'is_staff': 'on',
+        })
+        self.assertRedirects(response, reverse('panel_users'))
+        self.assertTrue(self.User.objects.get(username='panel-staff').is_staff)
+
+
+class CommunityTests(TestCase):
+    def setUp(self):
+        self.User = get_user_model()
+        self.user = self.User.objects.create_user(
+            username='foro', password='ClaveForo-2026!'
+        )
+        self.other = self.User.objects.create_user(
+            username='foro-otro', password='ClaveForo-2026!'
+        )
+        self.staff = self.User.objects.create_user(
+            username='foro-staff', password='ClaveForo-2026!', is_staff=True
+        )
+        self.game = Game.objects.first()
+        self.client = Client()
+
+    def make_thread(self, **overrides):
+        data = {
+            'game': self.game,
+            'author': self.user,
+            'title': 'Tema de prueba',
+            'body': 'Un cuerpo suficientemente largo para la comunidad.',
+            'category': Discussion.Category.GENERAL,
+        }
+        data.update(overrides)
+        return Discussion.objects.create(**data)
+
+    def test_community_page_is_public(self):
+        thread = self.make_thread()
+        response = self.client.get(reverse('community'))
+        self.assertEqual(response.status_code, 200)
+        self.assertTemplateUsed(response, 'community.html')
+        self.assertContains(response, thread.title)
+
+    def test_game_community_page_is_public(self):
+        thread = self.make_thread()
+        response = self.client.get(reverse('game_community', args=[self.game.slug]))
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, thread.title)
+
+    def test_create_thread_requires_login(self):
+        response = self.client.get(reverse('discussion_create'))
+        self.assertEqual(response.status_code, 302)
+        self.assertIn(reverse('login'), response.url)
+
+    def test_create_general_thread(self):
+        self.client.force_login(self.user)
+        response = self.client.post(reverse('discussion_create'), {
+            'title': '¿Qué juego me recomiendan?',
+            'body': 'Busco algo corto y narrativo para el fin de semana.',
+            'category': Discussion.Category.HELP,
+        })
+        thread = Discussion.objects.get(title='¿Qué juego me recomiendan?')
+        self.assertRedirects(response, reverse('discussion_detail', args=[thread.pk]))
+        self.assertEqual(thread.author, self.user)
+        self.assertIsNone(thread.game)
+        self.assertEqual(thread.category, Discussion.Category.HELP)
+
+    def test_create_game_thread(self):
+        self.client.force_login(self.user)
+        response = self.client.post(
+            reverse('game_discussion_create', args=[self.game.slug]),
+            {
+                'title': 'Comparto mi final',
+                'body': 'Me encantó la última parte de este juego.',
+                'category': Discussion.Category.GENERAL,
+            },
+        )
+        thread = Discussion.objects.get(title='Comparto mi final')
+        self.assertRedirects(response, reverse('discussion_detail', args=[thread.pk]))
+        self.assertEqual(thread.game, self.game)
+
+    def test_invalid_thread_is_not_created(self):
+        self.client.force_login(self.user)
+        response = self.client.post(reverse('discussion_create'), {
+            'title': 'x',
+            'body': 'corto',
+            'category': Discussion.Category.GENERAL,
+        })
+        self.assertEqual(response.status_code, 200)
+        self.assertFalse(Discussion.objects.exists())
+
+    def test_reply_updates_activity_and_renders(self):
+        thread = self.make_thread()
+        before = thread.last_activity_at
+        self.client.force_login(self.other)
+        response = self.client.post(
+            reverse('discussion_reply', args=[thread.pk]),
+            {'body': 'Yo también lo jugué y me gustó.'},
+        )
+        self.assertEqual(response.status_code, 302)
+        thread.refresh_from_db()
+        self.assertGreater(thread.last_activity_at, before)
+        reply = thread.replies.get()
+        self.assertEqual(reply.author, self.other)
+        self.assertContains(
+            self.client.get(reverse('discussion_detail', args=[thread.pk])),
+            'Yo también lo jugué y me gustó.',
+        )
+
+    def test_locked_thread_rejects_replies(self):
+        thread = self.make_thread(is_locked=True)
+        self.client.force_login(self.user)
+        self.client.post(
+            reverse('discussion_reply', args=[thread.pk]),
+            {'body': 'Esto no debería publicarse.'},
+        )
+        self.assertEqual(thread.replies.count(), 0)
+
+    def test_author_can_delete_thread(self):
+        thread = self.make_thread()
+        self.client.force_login(self.user)
+        response = self.client.post(
+            reverse('discussion_delete', args=[thread.pk])
+        )
+        self.assertRedirects(response, reverse('game_community', args=[self.game.slug]))
+        self.assertFalse(Discussion.objects.filter(pk=thread.pk).exists())
+
+    def test_other_user_cannot_delete_thread(self):
+        thread = self.make_thread()
+        self.client.force_login(self.other)
+        response = self.client.post(
+            reverse('discussion_delete', args=[thread.pk])
+        )
+        self.assertEqual(response.status_code, 403)
+        self.assertTrue(Discussion.objects.filter(pk=thread.pk).exists())
+
+    def test_author_can_delete_reply(self):
+        thread = self.make_thread()
+        reply = DiscussionReply.objects.create(
+            discussion=thread, author=self.user, body='Comentario propio.'
+        )
+        self.client.force_login(self.user)
+        response = self.client.post(reverse('reply_delete', args=[reply.pk]))
+        self.assertRedirects(
+            response, reverse('discussion_detail', args=[thread.pk])
+        )
+        self.assertFalse(DiscussionReply.objects.filter(pk=reply.pk).exists())
+
+    def test_staff_can_pin_and_lock_thread(self):
+        thread = self.make_thread()
+        self.client.force_login(self.staff)
+
+        self.client.post(
+            reverse('discussion_moderate', args=[thread.pk]),
+            {'action': 'pin'},
+        )
+        self.client.post(
+            reverse('discussion_moderate', args=[thread.pk]),
+            {'action': 'lock'},
+        )
+
+        thread.refresh_from_db()
+        self.assertTrue(thread.is_pinned)
+        self.assertTrue(thread.is_locked)
+
+    def test_game_detail_shows_community_preview(self):
+        thread = self.make_thread()
+        DiscussionReply.objects.create(
+            discussion=thread,
+            author=self.other,
+            body='Un comentario reciente para la ficha.',
+        )
+        response = self.client.get(reverse('game_detail', args=[self.game.slug]))
+        self.assertContains(response, 'Habla de')
+        self.assertContains(response, thread.title)
+        self.assertContains(response, 'Un comentario reciente para la ficha.')
+
+    def test_community_filters_by_category(self):
+        self.make_thread(title='Tema general')
+        self.make_thread(
+            title='Tema de ayuda',
+            category=Discussion.Category.HELP,
+        )
+        response = self.client.get(reverse('community'), {'category': 'Ayuda'})
+        self.assertContains(response, 'Tema de ayuda')
+        self.assertNotContains(response, 'Tema general')
+
+
+class PrivacyTests(TestCase):
+    def setUp(self):
+        self.User = get_user_model()
+        self.owner = self.User.objects.create_user(
+            username='privacidad', password='ClavePrivada-2026!'
+        )
+        self.member = self.User.objects.create_user(
+            username='miembro', password='ClaveMiembro-2026!'
+        )
+        self.staff = self.User.objects.create_user(
+            username='privacidad-staff',
+            password='ClaveStaff-2026!',
+            is_staff=True,
+        )
+        self.profile = Profile.objects.get(user=self.owner)
+        self.profile.bio = 'Bio visible para quien corresponda.'
+        self.profile.save(update_fields=['bio'])
+        self.game = Game.objects.first()
+        self.client = Client()
+
+    def test_default_visibility_is_members(self):
+        self.assertEqual(self.profile.visibility, Profile.Visibility.MEMBERS)
+
+    def test_anonymous_cannot_see_members_profile(self):
+        response = self.client.get(
+            reverse('public_profile', args=[self.owner.username])
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'solo está visible para cuentas registradas')
+        self.assertNotContains(response, 'Bio visible para quien corresponda.')
+
+    def test_member_sees_members_profile(self):
+        self.client.force_login(self.member)
+        response = self.client.get(
+            reverse('public_profile', args=[self.owner.username])
+        )
+        self.assertContains(response, 'Bio visible para quien corresponda.')
+
+    def test_public_profile_is_visible_to_anonymous(self):
+        self.profile.visibility = Profile.Visibility.PUBLIC
+        self.profile.save(update_fields=['visibility'])
+        response = self.client.get(
+            reverse('public_profile', args=[self.owner.username])
+        )
+        self.assertContains(response, 'Bio visible para quien corresponda.')
+
+    def test_private_profile_is_hidden_from_members(self):
+        self.profile.visibility = Profile.Visibility.PRIVATE
+        self.profile.save(update_fields=['visibility'])
+        self.client.force_login(self.member)
+        response = self.client.get(
+            reverse('public_profile', args=[self.owner.username])
+        )
+        self.assertContains(response, 'Perfil privado')
+        self.assertNotContains(response, 'Bio visible para quien corresponda.')
+
+    def test_owner_sees_own_private_profile(self):
+        self.profile.visibility = Profile.Visibility.PRIVATE
+        self.profile.save(update_fields=['visibility'])
+        self.client.force_login(self.owner)
+        response = self.client.get(
+            reverse('public_profile', args=[self.owner.username])
+        )
+        self.assertContains(response, 'Bio visible para quien corresponda.')
+        self.assertContains(response, 'Así ve tu perfil')
+
+    def test_hidden_sections_do_not_render(self):
+        LibraryEntry.objects.create(
+            user=self.owner,
+            game=self.game,
+            status=LibraryEntry.Status.DONE,
+        )
+        thread = Discussion.objects.create(
+            game=self.game,
+            author=self.owner,
+            title='Tema que no debe verse',
+            body='Cuerpo del tema que no debe verse en el perfil.',
+        )
+        self.profile.visibility = Profile.Visibility.PUBLIC
+        self.profile.show_library = False
+        self.profile.show_stats = False
+        self.profile.show_discussions = False
+        self.profile.save(update_fields=[
+            'visibility', 'show_library', 'show_stats', 'show_discussions',
+        ])
+
+        response = self.client.get(
+            reverse('public_profile', args=[self.owner.username])
+        )
+        self.assertNotContains(response, self.game.title)
+        self.assertNotContains(response, thread.title)
+        self.assertContains(response, 'Perfil sin secciones públicas')
+
+    def test_privacy_form_updates_settings(self):
+        self.client.force_login(self.owner)
+        response = self.client.post(reverse('privacy'), {
+            'visibility': Profile.Visibility.PUBLIC,
+            'show_stats': 'on',
+        })
+        self.assertRedirects(response, reverse('privacy'))
+        self.profile.refresh_from_db()
+        self.assertEqual(self.profile.visibility, Profile.Visibility.PUBLIC)
+        self.assertTrue(self.profile.show_stats)
+        self.assertFalse(self.profile.show_library)
+        self.assertFalse(self.profile.show_discussions)
+
+    def test_account_export_contains_data_and_no_password(self):
+        LibraryEntry.objects.create(
+            user=self.owner,
+            game=self.game,
+            status=LibraryEntry.Status.PLAYING,
+        )
+        Discussion.objects.create(
+            game=self.game,
+            author=self.owner,
+            title='Tema exportable',
+            body='Contenido del tema exportable.',
+        )
+        self.client.force_login(self.owner)
+        response = self.client.get(reverse('account_export'))
+        self.assertEqual(response.status_code, 200)
+        self.assertIn('application/json', response['Content-Type'])
+        payload = json.loads(response.content)
+        self.assertEqual(payload['cuenta']['usuario'], 'privacidad')
+        self.assertEqual(payload['biblioteca'][0]['juego'], self.game.title)
+        self.assertEqual(payload['temas'][0]['titulo'], 'Tema exportable')
+        self.assertNotIn('password', response.content.decode().lower())
+
+
+class SecurityTests(TestCase):
+    def setUp(self):
+        self.User = get_user_model()
+        self.user = self.User.objects.create_user(
+            username='seguridad', password='ClaveSegura-2026!'
+        )
+        self.client = Client()
+
+    def test_security_requires_login(self):
+        response = self.client.get(reverse('security'))
+        self.assertEqual(response.status_code, 302)
+        self.assertIn(reverse('login'), response.url)
+
+    def test_security_page_renders_password_and_sessions(self):
+        self.client.force_login(self.user)
+        response = self.client.get(reverse('security'))
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'Cambiar contraseña')
+        self.assertContains(response, 'Sesiones activas')
+        self.assertContains(response, 'Esta sesión')
+
+    def test_password_change_keeps_current_session(self):
+        self.client.force_login(self.user)
+        response = self.client.post(reverse('security'), {
+            'old_password': 'ClaveSegura-2026!',
+            'new_password1': 'NuevaClave-2026!',
+            'new_password2': 'NuevaClave-2026!',
+        })
+        self.assertRedirects(response, reverse('security'))
+        self.user.refresh_from_db()
+        self.assertTrue(self.user.check_password('NuevaClave-2026!'))
+        self.assertEqual(self.client.get(reverse('security')).status_code, 200)
+
+    def test_password_change_rejects_wrong_current_password(self):
+        self.client.force_login(self.user)
+        response = self.client.post(reverse('security'), {
+            'old_password': 'incorrecta',
+            'new_password1': 'NuevaClave-2026!',
+            'new_password2': 'NuevaClave-2026!',
+        })
+        self.assertEqual(response.status_code, 200)
+        self.user.refresh_from_db()
+        self.assertTrue(self.user.check_password('ClaveSegura-2026!'))
+
+    def test_close_other_sessions_keeps_current(self):
+        first = Client()
+        second = Client()
+        first.force_login(self.user)
+        second.force_login(self.user)
+
+        response = first.post(reverse('close_other_sessions'))
+        self.assertRedirects(response, reverse('security'))
+        self.assertEqual(first.get(reverse('security')).status_code, 200)
+        self.assertEqual(second.get(reverse('perfil')).status_code, 302)
+
+    def test_close_all_sessions_logs_everywhere_out(self):
+        first = Client()
+        second = Client()
+        first.force_login(self.user)
+        second.force_login(self.user)
+
+        response = first.post(reverse('close_all_sessions'))
+        self.assertRedirects(response, reverse('index'))
+        self.assertEqual(first.get(reverse('perfil')).status_code, 302)
+        self.assertEqual(second.get(reverse('perfil')).status_code, 302)

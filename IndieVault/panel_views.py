@@ -14,7 +14,7 @@ from django.utils import timezone
 from django.utils.http import url_has_allowed_host_and_scheme
 from django.views.decorators.http import require_POST
 
-from .forms import AdminEnterpriseForm, AdminGameForm
+from .forms import AdminAccountCreateForm, AdminEnterpriseForm, AdminGameForm
 from .models import Enterprise, Game, LibraryEntry
 from .stats import admin_stats, dashboard_charts
 
@@ -399,6 +399,32 @@ def panel_enterprises_export(request):
         ['Estudio', 'Usuario', 'Correo', 'Web', 'Verificada', 'Juegos', 'Creada'],
         rows,
     )
+
+
+@staff_required
+def panel_user_create(request):
+    """Crea una cuenta desde el panel con usuario y contraseña, sin correo."""
+    if request.method == 'POST':
+        form = AdminAccountCreateForm(request.POST)
+        if form.is_valid():
+            account = form.save()
+            role = 'personal' if account.is_staff else 'jugador'
+            messages.success(
+                request,
+                f'La cuenta {account.username} se creó como {role}.',
+            )
+            return redirect('panel_users')
+    else:
+        form = AdminAccountCreateForm()
+
+    return render(request, 'panel/user_form.html', {
+        'form': form,
+        'panel_section': 'users',
+        'panel_title': 'Nueva cuenta',
+        'panel_note': 'Crea una cuenta con usuario y contraseña. No se pide correo.',
+        'cancel_url': reverse('panel_users'),
+        'submit_label': 'Crear cuenta',
+    })
 
 
 @staff_required

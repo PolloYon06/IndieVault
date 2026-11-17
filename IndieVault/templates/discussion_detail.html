@@ -1,0 +1,136 @@
+{% extends 'base.html' %}
+{% load indievault_tags %}
+
+{% block title %}{{ discussion.title }} · Comunidad · IndieVault{% endblock %}
+
+{% block content %}
+<section class="page-shell thread-page">
+    {% if discussion.game %}
+        <a class="back-link" href="{% url 'game_community' discussion.game.slug %}">← Comunidad de {{ discussion.game.title }}</a>
+    {% else %}
+        <a class="back-link" href="{% url 'community' %}">← Volver a la comunidad</a>
+    {% endif %}
+
+    <article class="thread-hero">
+        <div class="thread-badges">
+            <span class="badge">{{ discussion.get_category_display }}</span>
+            {% if discussion.is_pinned %}<span class="badge lilac">Fijado</span>{% endif %}
+            {% if discussion.is_locked %}<span class="badge warn">Cerrado</span>{% endif %}
+        </div>
+
+        <h1>{{ discussion.title }}</h1>
+
+        <div class="thread-byline">
+            <a class="thread-author" href="{% url 'public_profile' discussion.author.username %}">
+                {% with avatar=discussion.author|avatar_url %}
+                    {% if avatar %}
+                        <img class="thread-avatar" src="{{ avatar }}" alt="">
+                    {% else %}
+                        <span class="thread-avatar thread-avatar-fallback" aria-hidden="true">{{ discussion.author|initials }}</span>
+                    {% endif %}
+                {% endwith %}
+                <span>{{ discussion.author|display_name }}</span>
+            </a>
+            <span>{{ discussion.created_at|date:"d M Y, H:i" }}</span>
+            {% if discussion.game %}
+                <span>en <a href="{% url 'game_detail' discussion.game.slug %}">{{ discussion.game.title }}</a></span>
+            {% endif %}
+        </div>
+
+        <div class="thread-body">
+            {{ discussion.body|linebreaks }}
+        </div>
+
+        <div class="thread-actions">
+            {% if user.is_authenticated %}
+                {% if user == discussion.author or user.is_staff %}
+                    <form method="post" action="{% url 'discussion_delete' discussion.pk %}" onsubmit="return confirm('¿Eliminar este tema y todos sus comentarios?');">
+                        {% csrf_token %}
+                        <button class="button danger small" type="submit">Eliminar tema</button>
+                    </form>
+                {% endif %}
+            {% endif %}
+
+            {% if can_moderate %}
+                <form method="post" action="{% url 'discussion_moderate' discussion.pk %}">
+                    {% csrf_token %}
+                    {% if discussion.is_pinned %}
+                        <input type="hidden" name="action" value="unpin">
+                        <button class="button ghost small" type="submit">Quitar fijado</button>
+                    {% else %}
+                        <input type="hidden" name="action" value="pin">
+                        <button class="button ghost small" type="submit">Fijar tema</button>
+                    {% endif %}
+                </form>
+                <form method="post" action="{% url 'discussion_moderate' discussion.pk %}">
+                    {% csrf_token %}
+                    {% if discussion.is_locked %}
+                        <input type="hidden" name="action" value="unlock">
+                        <button class="button ghost small" type="submit">Reabrir tema</button>
+                    {% else %}
+                        <input type="hidden" name="action" value="lock">
+                        <button class="button ghost small" type="submit">Cerrar tema</button>
+                    {% endif %}
+                </form>
+            {% endif %}
+        </div>
+    </article>
+
+    <section class="thread-replies" aria-labelledby="replies-title">
+        <h2 id="replies-title">{{ replies|length }} comentario{{ replies|length|pluralize }}</h2>
+
+        {% for reply in replies %}
+            <article class="reply-card" id="reply-{{ reply.pk }}">
+                <div class="reply-head">
+                    <a class="thread-author" href="{% url 'public_profile' reply.author.username %}">
+                        {% with avatar=reply.author|avatar_url %}
+                            {% if avatar %}
+                                <img class="thread-avatar" src="{{ avatar }}" alt="">
+                            {% else %}
+                                <span class="thread-avatar thread-avatar-fallback" aria-hidden="true">{{ reply.author|initials }}</span>
+                            {% endif %}
+                        {% endwith %}
+                        <span>{{ reply.author|display_name }}</span>
+                    </a>
+                    <span>{{ reply.created_at|date:"d M Y, H:i" }}</span>
+                    {% if user.is_authenticated %}
+                        {% if user == reply.author or user.is_staff %}
+                            <form class="inline-form" method="post" action="{% url 'reply_delete' reply.pk %}" onsubmit="return confirm('¿Eliminar este comentario?');">
+                                {% csrf_token %}
+                                <button class="button danger small" type="submit">Eliminar</button>
+                            </form>
+                        {% endif %}
+                    {% endif %}
+                </div>
+                <div class="reply-body">
+                    {{ reply.body|linebreaks }}
+                </div>
+            </article>
+        {% empty %}
+            <p class="community-empty">Todavía no hay comentarios. Abre la conversación.</p>
+        {% endfor %}
+    </section>
+
+    {% if discussion.is_locked %}
+        <p class="thread-locked">Este tema está cerrado. Puedes leerlo, pero no añadir comentarios.</p>
+    {% elif user.is_authenticated %}
+        <form class="studio-form reply-form" method="post" action="{% url 'discussion_reply' discussion.pk %}" novalidate>
+            {% csrf_token %}
+            <div class="form-field">
+                <label for="{{ reply_form.body.id_for_label }}">{{ reply_form.body.label }}</label>
+                {{ reply_form.body }}
+                {% for error in reply_form.body.errors %}<p class="form-error">{{ error }}</p>{% endfor %}
+            </div>
+            {% for error in reply_form.non_field_errors %}<p class="form-error">{{ error }}</p>{% endfor %}
+            <div class="form-actions">
+                <button class="button" type="submit">Publicar comentario</button>
+            </div>
+        </form>
+    {% else %}
+        <div class="community-cta">
+            <p>Inicia sesión para comentar en este tema.</p>
+            <a class="button" href="{% url 'login' %}?next={{ request.get_full_path|urlencode }}">Iniciar sesión</a>
+        </div>
+    {% endif %}
+</section>
+{% endblock %}

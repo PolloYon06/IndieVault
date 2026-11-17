@@ -1,0 +1,112 @@
+{% extends 'base.html' %}
+
+{% block title %}Seguridad · IndieVault{% endblock %}
+
+{% block content %}
+<section class="page-head">
+    <p class="eyebrow">Tu cuenta</p>
+    <h1>Seguridad y <span>sesiones</span></h1>
+    <p class="hero-copy">Cambia tu contraseña y revisa los dispositivos desde los que está abierta tu cuenta.</p>
+</section>
+
+<section class="page-shell">
+    <div class="settings-layout">
+        <div class="settings-main">
+            <form class="studio-form settings-form" method="post" novalidate>
+                {% csrf_token %}
+                <h2 class="settings-title">Cambiar contraseña</h2>
+
+                {% for field in form %}
+                    <div class="form-field">
+                        <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+                        {{ field }}
+                        {% for error in field.errors %}<p class="form-error">{{ error }}</p>{% endfor %}
+                        {% if field.help_text %}<p class="form-help">{{ field.help_text|safe }}</p>{% endif %}
+                    </div>
+                {% endfor %}
+
+                {% for error in form.non_field_errors %}<p class="form-error">{{ error }}</p>{% endfor %}
+
+                <div class="form-actions">
+                    <button class="button" type="submit">Actualizar contraseña</button>
+                    <a class="button ghost" href="{% url 'privacy' %}">Privacidad</a>
+                </div>
+            </form>
+
+            <section class="stat-card settings-card sessions-card" aria-labelledby="sessions-title">
+                <div class="section-head">
+                    <h2 id="sessions-title">Sesiones activas</h2>
+                    <span class="section-note">{{ sessions|length }} abierta{{ sessions|length|pluralize }}</span>
+                </div>
+
+                <div class="panel-table-wrap">
+                    <table class="panel-table sessions-table">
+                        <thead>
+                            <tr>
+                                <th>Dispositivo</th>
+                                <th>IP</th>
+                                <th>Expira</th>
+                                <th>Estado</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for session in sessions %}
+                                <tr>
+                                    <td>{{ session.device }}</td>
+                                    <td><code>{{ session.ip }}</code></td>
+                                    <td>{{ session.expires|date:"d M Y, H:i" }}</td>
+                                    <td>
+                                        {% if session.current %}
+                                            <span class="badge ok">Esta sesión</span>
+                                        {% else %}
+                                            <span class="badge">Activa</span>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                            {% empty %}
+                                <tr>
+                                    <td colspan="4"><p class="panel-empty">No encontramos sesiones registradas.</p></td>
+                                </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+
+                <p class="form-help">
+                    {% if previous_login %}
+                        Acceso anterior: {{ previous_login|date:"d M Y, H:i" }}.
+                    {% else %}
+                        No tenemos registrado un acceso anterior.
+                    {% endif %}
+                    Si cambias la contraseña, las demás sesiones se cierran automáticamente.
+                </p>
+
+                <div class="form-actions">
+                    <form method="post" action="{% url 'close_other_sessions' %}" onsubmit="return confirm('¿Cerrar la sesión en los demás dispositivos?');">
+                        {% csrf_token %}
+                        <button class="button ghost small" type="submit">Cerrar las demás sesiones</button>
+                    </form>
+                    <form method="post" action="{% url 'close_all_sessions' %}" onsubmit="return confirm('¿Cerrar todas las sesiones, incluida esta?');">
+                        {% csrf_token %}
+                        <button class="button danger small" type="submit">Cerrar todas</button>
+                    </form>
+                </div>
+            </section>
+        </div>
+
+        <aside class="settings-aside">
+            <section class="stat-card settings-card">
+                <h2>Sin correo, sin recuperación automática</h2>
+                <p>Esta cuenta no usa correo. Si olvidas la contraseña, necesitarás que el equipo te ayude a restablecerla desde el panel.</p>
+                <p>Guarda tu contraseña en un lugar seguro y no la reutilices en otros sitios.</p>
+            </section>
+
+            <section class="stat-card settings-card">
+                <h2>Privacidad</h2>
+                <p>Controla quién puede ver tu perfil, tu biblioteca y tus estadísticas.</p>
+                <a class="button ghost small" href="{% url 'privacy' %}">Ajustes de privacidad</a>
+            </section>
+        </aside>
+    </div>
+</section>
+{% endblock %}

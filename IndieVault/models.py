@@ -1,5 +1,7 @@
 from django.conf import settings
 from django.db import models
+from django.urls import reverse
+from django.utils import timezone
 from django.utils.text import slugify
 
 
@@ -114,6 +116,30 @@ class Profile(models.Model):
         help_text='Tomar el color dominante de la foto de perfil.',
     )
 
+    class Visibility(models.TextChoices):
+        PUBLIC = 'public', 'Público'
+        MEMBERS = 'members', 'Solo cuentas registradas'
+        PRIVATE = 'private', 'Solo yo'
+
+    visibility = models.CharField(
+        max_length=10,
+        choices=Visibility.choices,
+        default=Visibility.MEMBERS,
+        help_text='Quién puede ver tu perfil público y las secciones que compartes.',
+    )
+    show_library = models.BooleanField(
+        default=True,
+        help_text='Mostrar tu biblioteca en el perfil público.',
+    )
+    show_stats = models.BooleanField(
+        default=True,
+        help_text='Mostrar un resumen de tus estadísticas en el perfil público.',
+    )
+    show_discussions = models.BooleanField(
+        default=True,
+        help_text='Mostrar tu actividad reciente en la comunidad.',
+    )
+
     class Meta:
         verbose_name = 'perfil'
         verbose_name_plural = 'perfiles'
@@ -124,6 +150,18 @@ class Profile(models.Model):
     def accent_source(self):
         """Origen que entiende `dominant_accent`: bytes o el archivo heredado."""
         return self.avatar_data or self.avatar or None
+
+    def is_visible_to(self, viewer):
+        """Indica si `viewer` puede ver el perfil público de esta cuenta."""
+        if viewer.is_authenticated and (
+            viewer == self.user or viewer.is_staff
+        ):
+            return True
+        if self.visibility == self.Visibility.PUBLIC:
+            return True
+        if self.visibility == self.Visibility.MEMBERS and viewer.is_authenticated:
+            return True
+        return False
 
 
 class LibraryEntry(models.Model):
@@ -151,3 +189,81 @@ class LibraryEntry(models.Model):
 
     def __str__(self):
         return f'{self.game.title} · {self.status}'
+
+
+class Discussion(models.Model):
+    """Hilo del panel de comunidad, asociado a un juego o a la comunidad."""
+
+    class Category(models.TextChoices):
+        GENERAL = 'General', 'General'
+        HELP = 'Ayuda', 'Ayuda'
+        BUGS = 'Errores', 'Errores'
+        GUIDES = 'Guías', 'Guías'
+        TEAM = 'Busco gente', 'Busco gente'
+
+    game = models.ForeignKey(
+        Game,
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+        related_name='discussions',
+    )
+    author = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name='discussions',
+    )
+    title = models.CharField(max_length=140)
+    body = models.TextField()
+    category = models.CharField(
+        max_length=16,
+        choices=Category.choices,
+        default=Category.GENERAL,
+    )
+    is_pinned = models.BooleanField(default=False)
+    is_locked = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    last_activity_at = models.DateTimeField(default=timezone.now, db_index=True)
+
+    class Meta:
+        ordering = ['-is_pinned', '-last_activity_at']
+        verbose_name = 'tema de comunidad'
+        verbose_name_plural = 'temas de comunidad'
+        indexes = [
+            models.Index(fields=['game', '-last_activity_at']),
+        ]
+
+    def __str__(self):
+        return self.title
+
+    def get_absolute_url(self):
+        return reverse('discussion_detail', args=[self.pk])
+
+
+class DiscussionReply(models.Model):
+    """Comentario dentro de un tema de comunidad."""
+
+    discussion = models.ForeignKey(
+        Discussion,
+        on_delete=models.CASCADE,
+        related_name='replies',
+    )
+    author = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name='discussion_replies',
+    )
+    body = models.TextField()
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['created_at']
+        verbose_name = 'comentario de comunidad'
+        verbose_name_plural = 'comentarios de comunidad'
+
+    def __str__(self):
+        preview = self.body[:60].replace('\n', ' ')
+        return f'{self.author.username}: {preview}'
+

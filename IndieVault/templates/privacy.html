@@ -1,0 +1,56 @@
+{% extends 'base.html' %}
+
+{% block title %}Privacidad · IndieVault{% endblock %}
+
+{% block content %}
+<section class="page-head">
+    <p class="eyebrow">Tu cuenta</p>
+    <h1>Privacidad del <span>perfil</span></h1>
+    <p class="hero-copy">Tú decides quién puede ver tu perfil y qué partes de tu actividad compartes con la comunidad.</p>
+</section>
+
+<section class="page-shell">
+    <div class="settings-layout">
+        <form class="studio-form settings-form" method="post" novalidate>
+            {% csrf_token %}
+
+            {% for field in form %}
+                <div class="form-field{% if field.field.widget.input_type == 'checkbox' %} form-check{% endif %}">
+                    <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+                    {{ field }}
+                    {% for error in field.errors %}<p class="form-error">{{ error }}</p>{% endfor %}
+                    {% if field.help_text %}<p class="form-help">{{ field.help_text }}</p>{% endif %}
+                </div>
+            {% endfor %}
+
+            {% for error in form.non_field_errors %}<p class="form-error">{{ error }}</p>{% endfor %}
+
+            <div class="form-actions">
+                <button class="button" type="submit">Guardar privacidad</button>
+                <a class="button ghost" href="{% url 'perfil' %}">Volver a mi perfil</a>
+            </div>
+        </form>
+
+        <aside class="settings-aside">
+            <section class="stat-card settings-card">
+                <h2>Qué controla cada opción</h2>
+                <p><strong>Visibilidad:</strong> define si tu perfil lo puede abrir todo el mundo, solo quien tenga cuenta o nadie más que tú.</p>
+                <p><strong>Secciones:</strong> aunque tu perfil sea visible, puedes ocultar la biblioteca, las estadísticas o tu actividad reciente.</p>
+                <p>Los temas y comentarios que publiques en la comunidad siguen siendo visibles para todos; la última opción solo oculta la lista en tu perfil.</p>
+            </section>
+
+            <section class="stat-card settings-card">
+                <h2>Tus datos</h2>
+                <p>Puedes descargar una copia en JSON de tu cuenta, tu biblioteca y tu actividad en la comunidad.</p>
+                <a class="button ghost small" href="{% url 'account_export' %}">Descargar mis datos</a>
+            </section>
+
+            <section class="stat-card settings-card">
+                <h2>Contraseña y sesiones</h2>
+                <p>Cambia tu contraseña y revisa desde dónde está abierta tu cuenta.</p>
+                <a class="button ghost small" href="{% url 'security' %}">Ir a seguridad</a>
+            </section>
+        </aside>
+    </div>
+</section>
+{% endblock %}

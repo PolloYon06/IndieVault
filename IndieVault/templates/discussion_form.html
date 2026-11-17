@@ -1,0 +1,37 @@
+{% extends 'base.html' %}
+
+{% block title %}Nuevo tema · IndieVault{% endblock %}
+
+{% block content %}
+<section class="page-head">
+    <p class="eyebrow">Comunidad{% if game %} · {{ game.title }}{% endif %}</p>
+    <h1>Nuevo <span>tema</span></h1>
+    <p class="hero-copy">Comparte una pregunta, una guía o una experiencia con el resto de la comunidad.</p>
+</section>
+
+<section class="page-shell">
+    <form class="studio-form community-form" method="post" novalidate>
+        {% csrf_token %}
+
+        {% for field in form %}
+            <div class="form-field">
+                <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+                {{ field }}
+                {% for error in field.errors %}<p class="form-error">{{ error }}</p>{% endfor %}
+                {% if field.help_text %}<p class="form-help">{{ field.help_text }}</p>{% endif %}
+            </div>
+        {% endfor %}
+
+        {% for error in form.non_field_errors %}<p class="form-error">{{ error }}</p>{% endfor %}
+
+        <div class="form-actions">
+            <button class="button" type="submit">Publicar tema</button>
+            {% if game %}
+                <a class="button ghost" href="{% url 'game_community' game.slug %}">Cancelar</a>
+            {% else %}
+                <a class="button ghost" href="{% url 'community' %}">Cancelar</a>
+            {% endif %}
+        </div>
+    </form>
+</section>
+{% endblock %}

@@ -24,6 +24,7 @@
         <nav class="site-nav" aria-label="Navegación principal">
             <a href="{% url 'index' %}"{% if request.resolver_match.url_name == 'index' %} class="active" aria-current="page"{% endif %}>Inicio</a>
             <a href="{% url 'explorar' %}"{% if request.resolver_match.url_name == 'explorar' %} class="active" aria-current="page"{% endif %}>Explorar</a>
+            <a href="{% url 'community' %}"{% if request.resolver_match.url_name == 'community' or request.resolver_match.url_name == 'discussion_detail' or request.resolver_match.url_name == 'game_community' %} class="active" aria-current="page"{% endif %}>Comunidad</a>
             {% if not user.is_staff %}
                 <a class="library{% if request.resolver_match.url_name == 'biblioteca' %} active{% endif %}" href="{% url 'biblioteca' %}"{% if request.resolver_match.url_name == 'biblioteca' %} aria-current="page"{% endif %}>Biblioteca</a>
             {% endif %}

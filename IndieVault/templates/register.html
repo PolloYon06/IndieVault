@@ -1,0 +1,57 @@
+{% extends 'auth_base.html' %}
+
+{% block title %}Crear cuenta · IndieVault{% endblock %}
+
+{% block auth_heading %}<h1>Crear cuenta</h1>{% endblock %}
+{% block auth_subtitle %}
+    <p>Elige un usuario y una contraseña. No pedimos correo: guarda bien tus datos, porque no hay recuperación automática.</p>
+{% endblock %}
+
+{% block auth_content %}
+    <form method="post" action="{% url 'register' %}" novalidate>
+        {% csrf_token %}
+        <input type="hidden" name="next" value="{{ next }}">
+
+        <div class="mb-3">
+            <label class="form-label" for="{{ form.username.id_for_label }}">{{ form.username.label }}</label>
+            {{ form.username }}
+            {% for error in form.username.errors %}
+                <div class="field-error">{{ error }}</div>
+            {% endfor %}
+            {% if form.username.help_text %}
+                <div class="form-text">{{ form.username.help_text }}</div>
+            {% endif %}
+        </div>
+
+        <div class="mb-3">
+            <label class="form-label" for="{{ form.password1.id_for_label }}">{{ form.password1.label }}</label>
+            {{ form.password1 }}
+            {% for error in form.password1.errors %}
+                <div class="field-error">{{ error }}</div>
+            {% endfor %}
+            {% if form.password1.help_text %}
+                <div class="form-text">{{ form.password1.help_text }}</div>
+            {% endif %}
+        </div>
+
+        <div class="mb-4">
+            <label class="form-label" for="{{ form.password2.id_for_label }}">{{ form.password2.label }}</label>
+            {{ form.password2 }}
+            {% for error in form.password2.errors %}
+                <div class="field-error">{{ error }}</div>
+            {% endfor %}
+        </div>
+
+        <button class="btn btn-iv w-100" type="submit">Crear mi cuenta</button>
+    </form>
+{% endblock %}
+
+{% block auth_links %}
+    <div class="auth-links">
+        <a href="{% url 'login' %}">¿Ya tienes cuenta? Inicia sesión</a>
+        <span class="auth-sep">·</span>
+        <a href="{% url 'enterprise_register' %}">Registrar un estudio</a>
+        <span class="auth-sep">·</span>
+        <a href="{% url 'index' %}">Volver al inicio</a>
+    </div>
+{% endblock %}
