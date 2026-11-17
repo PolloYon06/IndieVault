@@ -1,0 +1,133 @@
+{% extends 'base.html' %}
+
+{% block title %}Apariencia · IndieVault{% endblock %}
+{% block body_class %}appearance-page{% endblock %}
+
+{% block content %}
+<section class="page-head">
+    <p class="eyebrow">Tu cuenta</p>
+    <h1>Tu <span>paleta</span></h1>
+    <p class="hero-copy">Elige el color que te represente. Se aplicará a botones, enlaces y detalles de tu cuenta.</p>
+</section>
+
+<section class="page-shell">
+    <div class="appearance-layout">
+        <form class="appearance-form" method="post" novalidate>
+            {% csrf_token %}
+
+            <fieldset class="appearance-fieldset">
+                <legend>Color de acento</legend>
+
+                <div class="swatches" role="group" aria-label="Colores predefinidos">
+                    {% for value, name in presets %}
+                        <button class="swatch" type="button" data-color="{{ value }}"
+                                style="--swatch: {{ value }}"
+                                aria-label="{{ name }}" title="{{ name }}"></button>
+                    {% endfor %}
+                </div>
+
+                <div class="appearance-color">
+                    <label class="sr-only" for="{{ form.accent.id_for_label }}">{{ form.accent.label }}</label>
+                    <div class="appearance-color-input">
+                        {{ form.accent }}
+                        <code id="accent-code">{{ form.accent.value|default:'#d6f36a' }}</code>
+                    </div>
+                </div>
+                {% for error in form.accent.errors %}<p class="form-error">{{ error }}</p>{% endfor %}
+                <p class="form-help">{{ form.accent.help_text }}</p>
+            </fieldset>
+
+            <label class="checkbox-row" for="{{ form.auto_accent.id_for_label }}">
+                {{ form.auto_accent }}
+                <span>{{ form.auto_accent.label }}</span>
+            </label>
+            <p class="form-help">Si tu foto no tiene un color claro, se usará el color de la marca.</p>
+
+            <div class="form-actions">
+                <button class="button" type="submit">Guardar paleta</button>
+                <a class="button ghost" href="{% url 'perfil' %}">Volver al perfil</a>
+            </div>
+        </form>
+
+        <aside class="appearance-preview" aria-label="Vista previa de la paleta">
+            <p class="eyebrow">Vista previa</p>
+            <h2>Así se verá</h2>
+            <p class="preview-copy">Botones, enlaces y detalles de tu cuenta usarán este color.</p>
+
+            <div class="preview-actions">
+                <span class="preview-button">Explorar juegos</span>
+                <span class="preview-link">Ver biblioteca ↗</span>
+            </div>
+            <span class="preview-tag">Roguelike</span>
+        </aside>
+    </div>
+</section>
+
+<script>
+    (function () {
+        const input = document.getElementById('{{ form.accent.id_for_label }}');
+        const code = document.getElementById('accent-code');
+        const preview = document.querySelector('.appearance-preview');
+        if (!input || !preview) return;
+
+        function normalize(hex) {
+            return /^#[0-9a-f]{6}$/i.test(hex || '') ? hex : '#d6f36a';
+        }
+
+        function hexToHsl(hex) {
+            const r = parseInt(hex.slice(1, 3), 16) / 255;
+            const g = parseInt(hex.slice(3, 5), 16) / 255;
+            const b = parseInt(hex.slice(5, 7), 16) / 255;
+            const max = Math.max(r, g, b);
+            const min = Math.min(r, g, b);
+            const lightness = (max + min) / 2;
+            let hue = 0;
+            let saturation = 0;
+
+            if (max !== min) {
+                const delta = max - min;
+                saturation = lightness > 0.5 ? delta / (2 - max - min) : delta / (max + min);
+                if (max === r) hue = ((g - b) / delta + (g < b ? 6 : 0)) / 6;
+                else if (max === g) hue = ((b - r) / delta + 2) / 6;
+                else hue = ((r - g) / delta + 4) / 6;
+            }
+            return [hue * 360, saturation * 100, lightness * 100];
+        }
+
+        function hslToHex(hue, saturation, lightness) {
+            saturation /= 100;
+            lightness /= 100;
+            const k = (n) => (n + hue / 30) % 12;
+            const a = saturation * Math.min(lightness, 1 - lightness);
+            const f = (n) => lightness - a * Math.max(-1, Math.min(k(n) - 3, Math.min(9 - k(n), 1)));
+            const toHex = (value) => Math.round(value * 255).toString(16).padStart(2, '0');
+            return '#' + toHex(f(0)) + toHex(f(8)) + toHex(f(4));
+        }
+
+        function apply(value) {
+            const hex = normalize(value);
+            const [hue, saturation] = hexToHsl(hex);
+            const isLight = document.documentElement.dataset.theme === 'light';
+            preview.style.setProperty(
+                '--preview-accent',
+                hslToHex(hue, Math.max(saturation, 55), isLight ? 34 : 66)
+            );
+            if (code) code.textContent = hex;
+            document.querySelectorAll('.swatch').forEach((button) => {
+                button.classList.toggle(
+                    'active', (button.dataset.color || '').toLowerCase() === hex.toLowerCase()
+                );
+            });
+        }
+
+        input.addEventListener('input', () => apply(input.value));
+        document.querySelectorAll('.swatch').forEach((button) => {
+            button.addEventListener('click', () => {
+                input.value = button.dataset.color;
+                apply(input.value);
+            });
+        });
+        apply(input.value);
+    })();
+</script>
+{% endblock %}

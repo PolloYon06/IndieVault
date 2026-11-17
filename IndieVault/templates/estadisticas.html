@@ -2,6 +2,7 @@
 {% load static %}
 
 {% block title %}{{ page_title }} · IndieVault{% endblock %}
+{% block body_class %}stats-page{% endblock %}
 
 {% block content %}
 <section class="page-head">
@@ -34,6 +35,6 @@
 </section>
 
 {{ charts|json_script:"chart-specs" }}
-<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+<script src="{% static 'vendor/chart.umd.min.js' %}"></script>
 <script src="{% static 'js/stats-charts.js' %}"></script>
 {% endblock %}

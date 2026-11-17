@@ -46,8 +46,8 @@ titulares.
 | [python-dotenv](https://github.com/theskumar/python-dotenv) | 1.1.1 | BSD-3-Clause |
 | [Chart.js](https://www.chartjs.org/) | 4.4.3 | MIT |
 
-Chart.js se carga desde jsDelivr (`cdn.jsdelivr.net`) y solo se usa en las
-páginas de estadísticas.
+Chart.js se incluye en `static/vendor/chart.umd.min.js` (build oficial de
+jsDelivr) para que las estadísticas funcionen sin conexión a internet.
 
 ## Tipografías
 

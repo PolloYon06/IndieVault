@@ -4,6 +4,10 @@ from django.utils.text import slugify
 
 
 class Game(models.Model):
+    # En IndieVault todo el catálogo es indie, así que repetirlo como género
+    # en las etiquetas y en los filtros solo añade ruido.
+    IGNORED_GENRES = {'indie'}
+
     title = models.CharField(max_length=255)
     slug = models.SlugField(max_length=140, unique=True, blank=True)
     steam_app_id = models.PositiveBigIntegerField(null=True, blank=True, unique=True)
@@ -40,7 +44,11 @@ class Game(models.Model):
         super().save(*args, **kwargs)
 
     def genre_list(self):
-        return [g.strip() for g in self.genres.split(',') if g.strip()]
+        return [
+            genre
+            for genre in (g.strip() for g in self.genres.split(','))
+            if genre and genre.casefold() not in self.IGNORED_GENRES
+        ]
 
     def is_free(self):
         return self.price == 0
@@ -91,6 +99,15 @@ class Profile(models.Model):
     )
     avatar = models.ImageField(upload_to='avatars/', blank=True)
     bio = models.CharField(max_length=200, blank=True)
+    accent = models.CharField(
+        max_length=7,
+        blank=True,
+        help_text='Color de acento en formato #rrggbb. Vacío usa el color de la marca.',
+    )
+    auto_accent = models.BooleanField(
+        default=True,
+        help_text='Tomar el color dominante de la foto de perfil.',
+    )
 
     class Meta:
         verbose_name = 'perfil'

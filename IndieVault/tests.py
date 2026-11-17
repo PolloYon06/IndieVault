@@ -1,13 +1,16 @@
 import base64
 import csv
 import tempfile
+from io import BytesIO
 from pathlib import Path
 
 from django.contrib.auth import get_user_model
+from django.core.files.base import ContentFile
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.core.management import call_command
 from django.test import Client, TestCase, override_settings
 from django.urls import reverse
+from PIL import Image as PILImage
 
 from .models import Enterprise, Game, LibraryEntry, Profile
 from .stats import admin_stats, user_stats
@@ -390,7 +393,7 @@ class SteamImportTests(TestCase):
         self.assertEqual(game.title, 'Juego Indie Real')
         self.assertEqual(game.studio, 'Estudio Real')
         self.assertEqual(game.year, 2012)
-        self.assertIn('Indie', game.genre_list())
+        self.assertNotIn('Indie', game.genre_list())
         self.assertFalse(Game.objects.filter(title='Sendero de luciérnagas').exists())
 
     def test_dry_run_does_not_change_games(self):
@@ -1089,3 +1092,104 @@ class AtypicalStatsTests(TestCase):
         self.assertContains(response, 'Altas por día y mes')
         self.assertContains(response, 'Estudios líderes')
         self.assertContains(response, 'chart-specs')
+
+
+class PersonalizationTests(TestCase):
+    def setUp(self):
+        self.user = get_user_model().objects.create_user(
+            username='afinidad', password='clave-afinidad-123'
+        )
+        self.client.force_login(self.user)
+        LibraryEntry.objects.create(
+            user=self.user, game=Game.objects.get(title='Cripta de vidrio')
+        )
+
+    def test_index_suggests_games_from_library_genres(self):
+        response = self.client.get(reverse('index'))
+        html = response.content.decode()
+        self.assertContains(response, 'Elegidos para ti')
+        self.assertContains(response, 'Porque te gustan Puzle')
+        self.assertIn('Taller de engranajes', html)
+        self.assertNotIn('Cripta de vidrio', html)
+
+    def test_index_without_library_has_no_suggestions(self):
+        other = get_user_model().objects.create_user(
+            username='sin-biblioteca', password='clave-sin-123'
+        )
+        self.client.force_login(other)
+        response = self.client.get(reverse('index'))
+        self.assertNotContains(response, 'Elegidos para ti')
+        self.assertContains(response, 'Tu biblioteca está esperando su primer título')
+
+    def test_guest_index_has_no_suggestions(self):
+        self.client.logout()
+        response = self.client.get(reverse('index'))
+        self.assertNotContains(response, 'Elegidos para ti')
+
+    def test_indie_is_hidden_from_filters_and_urls(self):
+        self.assertNotContains(self.client.get(reverse('explorar')), 'genre=Indie')
+        html = self.client.get(
+            reverse('explorar'), {'genre': 'indie'}
+        ).content.decode()
+        self.assertIn('Sendero de luciérnagas', html)
+
+
+class AppearanceTests(TestCase):
+    def setUp(self):
+        self.user = get_user_model().objects.create_user(
+            username='paleta', password='clave-paleta-123'
+        )
+
+    def test_appearance_requires_login(self):
+        response = self.client.get(reverse('apariencia'))
+        self.assertEqual(response.status_code, 302)
+        self.assertIn(reverse('login'), response.url)
+
+    def test_appearance_page_renders(self):
+        self.client.force_login(self.user)
+        response = self.client.get(reverse('apariencia'))
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'Color de acento')
+        self.assertContains(response, 'Vista previa')
+
+    def test_manual_accent_is_saved_and_applied(self):
+        self.client.force_login(self.user)
+        response = self.client.post(reverse('apariencia'), {'accent': '#ff0000'})
+        self.assertRedirects(response, reverse('apariencia'))
+
+        profile = Profile.objects.get(user=self.user)
+        self.assertEqual(profile.accent, '#ff0000')
+        self.assertFalse(profile.auto_accent)
+        self.assertContains(self.client.get(reverse('index')), '--accent-dark:')
+
+    def test_invalid_accent_is_rejected(self):
+        self.client.force_login(self.user)
+        response = self.client.post(reverse('apariencia'), {'accent': 'naranja'})
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'Usa un color en formato #rrggbb')
+        self.assertEqual(Profile.objects.get(user=self.user).accent, '')
+
+    def test_auto_accent_uses_avatar_colour(self):
+        buffer = BytesIO()
+        PILImage.new('RGB', (40, 40), (200, 30, 40)).save(buffer, format='PNG')
+        self.client.force_login(self.user)
+
+        with tempfile.TemporaryDirectory() as media_root:
+            with override_settings(MEDIA_ROOT=media_root):
+                profile = Profile.objects.get(user=self.user)
+                profile.avatar.save(
+                    'rojo.png', ContentFile(buffer.getvalue()), save=True
+                )
+                response = self.client.post(reverse('apariencia'), {
+                    'auto_accent': 'on',
+                    'accent': '#000000',
+                })
+                self.assertRedirects(response, reverse('apariencia'))
+                profile.refresh_from_db()
+                accent = profile.accent
+
+        self.assertTrue(profile.auto_accent)
+        self.assertRegex(accent, r'^#[0-9a-f]{6}$')
+        red, green, blue = (int(accent[i:i + 2], 16) for i in (1, 3, 5))
+        self.assertGreater(red, green)
+        self.assertGreater(red, blue)

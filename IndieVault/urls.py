@@ -8,6 +8,7 @@ urlpatterns = [
     path('biblioteca/', views.biblioteca, name='biblioteca'),
     path('estadisticas/', views.estadisticas, name='estadisticas'),
     path('perfil/', views.perfil, name='perfil'),
+    path('apariencia/', views.apariencia, name='apariencia'),
     path('biblioteca/agregar/<int:game_id>/', views.add_to_library, name='add_to_library'),
     path('biblioteca/quitar/<int:game_id>/', views.remove_from_library, name='remove_from_library'),
     path('biblioteca/estado/<int:entry_id>/', views.update_library_status, name='update_library_status'),

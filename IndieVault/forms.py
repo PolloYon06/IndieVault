@@ -3,6 +3,7 @@ from django.contrib.auth import get_user_model
 from django.contrib.auth.password_validation import validate_password
 from django.core.exceptions import ValidationError
 
+from .appearance import DEFAULT_ACCENT, HEX_RE, dominant_accent
 from .models import Enterprise, Game, Profile
 
 
@@ -201,5 +202,46 @@ class ProfileForm(forms.ModelForm):
 
         if commit:
             profile.save()
+            if profile.auto_accent:
+                profile.accent = dominant_accent(profile.avatar) if profile.avatar else ''
+                profile.save(update_fields=['accent'])
 
+        return profile
+
+
+class AppearanceForm(forms.ModelForm):
+    """Paleta de color personal: automática desde el avatar o elegida a mano."""
+
+    class Meta:
+        model = Profile
+        fields = ['accent', 'auto_accent']
+        widgets = {
+            'accent': forms.TextInput(attrs={'type': 'color'}),
+        }
+        labels = {
+            'accent': 'Color de acento',
+            'auto_accent': 'Usar el color dominante de mi foto de perfil',
+        }
+        help_texts = {
+            'accent': 'Elige un color o escribe su código hexadecimal.',
+        }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields['accent'].required = False
+        if not self.instance.accent:
+            self.initial['accent'] = DEFAULT_ACCENT
+
+    def clean_accent(self):
+        accent = (self.cleaned_data.get('accent') or '').strip()
+        if accent and not HEX_RE.match(accent):
+            raise ValidationError('Usa un color en formato #rrggbb.')
+        return accent.lower()
+
+    def save(self, commit=True):
+        profile = super().save(commit=False)
+        if profile.auto_accent:
+            profile.accent = dominant_accent(profile.avatar) if profile.avatar else ''
+        if commit:
+            profile.save()
         return profile

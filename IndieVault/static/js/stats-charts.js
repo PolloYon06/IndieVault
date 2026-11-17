@@ -6,7 +6,8 @@
     let instances = [];
 
     function readPalette() {
-        const css = getComputedStyle(document.documentElement);
+        // El body lleva la clase de la sección, que redefine --lime.
+        const css = getComputedStyle(document.body);
         return {
             lime: css.getPropertyValue('--lime').trim() || '#d6f36a',
             lilac: css.getPropertyValue('--lilac').trim() || '#c2a8ff',

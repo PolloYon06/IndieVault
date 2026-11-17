@@ -1,3 +1,4 @@
+from collections import Counter
 from decimal import Decimal
 
 from django.contrib import messages
@@ -13,7 +14,7 @@ from django.urls import reverse
 from django.utils.http import url_has_allowed_host_and_scheme
 from django.views.decorators.http import require_POST
 
-from .forms import EnterpriseSignupForm, GameForm, ProfileForm
+from .forms import AppearanceForm, EnterpriseSignupForm, GameForm, ProfileForm
 from .models import Game, LibraryEntry, Profile
 from .stats import user_stats
 
@@ -24,15 +25,36 @@ def index(request):
     featured = list(
         Game.objects.exclude(steam_app_id__isnull=True).order_by('-id')[:8]
     )
+    for_you = []
+    favourite_genres = []
+    in_library = set()
+
     if request.user.is_authenticated:
-        in_library = set(
-            LibraryEntry.objects.filter(user=request.user, game__in=featured)
-            .values_list('game_id', flat=True)
+        saved = list(
+            LibraryEntry.objects.filter(user=request.user).select_related('game')
         )
-    else:
-        in_library = set()
+        in_library = {entry.game_id for entry in saved}
+
+        genre_counts = Counter()
+        for entry in saved:
+            for genre in entry.game.genre_list():
+                genre_counts[genre] += 1
+        favourite_genres = [genre for genre, _ in genre_counts.most_common(3)]
+
+        if favourite_genres:
+            criteria = Q()
+            for genre in favourite_genres:
+                criteria |= Q(genres__icontains=genre)
+            for_you = list(
+                Game.objects.filter(criteria)
+                .exclude(pk__in=in_library)
+                .order_by('-id')[:8]
+            )
+
     return render(request, 'index.html', {
         'featured': featured,
+        'for_you': for_you,
+        'favourite_genres': favourite_genres,
         'in_library': in_library,
     })
 
@@ -40,6 +62,9 @@ def index(request):
 def explorar(request):
     games = Game.objects.all()
     genre = request.GET.get('genre', '')
+    if genre.casefold() in Game.IGNORED_GENRES:
+        # "Indie" no se ofrece como filtro; si llega por URL, se ignora.
+        genre = ''
     query = request.GET.get('q', '').strip()
     sort = request.GET.get('sort', '')
     price = request.GET.get('price', '')
@@ -71,7 +96,7 @@ def explorar(request):
         genre.strip()
         for value in Game.objects.values_list('genres', flat=True).distinct()
         for genre in value.split(',')
-        if genre.strip()
+        if genre.strip() and genre.strip().casefold() not in Game.IGNORED_GENRES
     }
     games = Paginator(games, 24).get_page(request.GET.get('page'))
 
@@ -228,7 +253,6 @@ def estadisticas(request):
 def perfil(request):
     """Permite personalizar la cuenta y subir una foto de perfil."""
     profile, _ = Profile.objects.get_or_create(user=request.user)
-
     if request.method == 'POST':
         form = ProfileForm(
             request.POST,
@@ -246,6 +270,37 @@ def perfil(request):
     return render(request, 'perfil.html', {
         'form': form,
         'profile': profile,
+    })
+
+
+ACCENT_PRESETS = [
+    ('#d6f36a', 'Lima'),
+    ('#c2a8ff', 'Lila'),
+    ('#7dd3fc', 'Cielo'),
+    ('#fbbf24', 'Ámbar'),
+    ('#fb7185', 'Coral'),
+    ('#4ade80', 'Menta'),
+]
+
+
+@login_required
+def apariencia(request):
+    """Pantalla para elegir la paleta personal del usuario."""
+    profile, _ = Profile.objects.get_or_create(user=request.user)
+
+    if request.method == 'POST':
+        form = AppearanceForm(request.POST, instance=profile)
+        if form.is_valid():
+            form.save()
+            messages.success(request, 'Tu paleta se actualizó correctamente.')
+            return redirect('apariencia')
+    else:
+        form = AppearanceForm(instance=profile)
+
+    return render(request, 'apariencia.html', {
+        'form': form,
+        'profile': profile,
+        'presets': ACCENT_PRESETS,
     })
 
 

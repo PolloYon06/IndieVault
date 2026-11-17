@@ -98,7 +98,7 @@ def user_stats(user):
 
     return {
         'admin': False,
-        'kicker_class': 'library',
+        'kicker_class': '',
         'page_kicker': 'Tu actividad',
         'page_title': 'Tus estadísticas',
         'page_note': 'Un resumen de lo que has guardado y avanzado en IndieVault.',

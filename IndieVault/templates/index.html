@@ -1,13 +1,48 @@
 {% extends 'base.html' %}
-{% load static %}
+{% load static indievault_tags %}
 
 {% block content %}
-    <section class="hero" aria-labelledby="hero-title">
-        <img class="hero-logo" src="{% static 'img/logo-large.png' %}" alt="Logotipo de IndieVault" width="512" height="512">
-        <p class="eyebrow">Tu próxima aventura te espera</p>
-        <h1 id="hero-title">Los mundos pequeños,<br><span>las grandes historias.</span></h1>
-        <p class="hero-copy">Descubre propuestas independientes y guarda los juegos que quieres tener siempre cerca.</p>
+    <section class="hero{% if user.is_authenticated %} hero-welcome{% endif %}" aria-labelledby="hero-title">
+        {% if user.is_authenticated %}
+            {% with avatar=user|avatar_url %}
+                {% if avatar %}
+                    <img class="hero-logo hero-avatar" src="{{ avatar }}" alt="Foto de {{ user|display_name }}" width="512" height="512">
+                {% else %}
+                    <span class="hero-logo hero-avatar hero-avatar-fallback" aria-hidden="true">{{ user|initials }}</span>
+                {% endif %}
+            {% endwith %}
+            <p class="eyebrow">Hola de nuevo, {{ user|display_name }}</p>
+            <h1 id="hero-title">Tu próximo mundo,<br><span>a tu manera.</span></h1>
+            {% if in_library %}
+                <p class="hero-copy">{{ in_library|length }} juego{{ in_library|length|pluralize }} en tu biblioteca. Esto es lo que encaja contigo hoy.</p>
+            {% else %}
+                <p class="hero-copy">Tu biblioteca está esperando su primer título. Explora el catálogo y guarda el que te llame la atención.</p>
+            {% endif %}
+        {% else %}
+            <img class="hero-logo" src="{% static 'img/logo-large.png' %}" alt="Logotipo de IndieVault" width="512" height="512">
+            <p class="eyebrow">Tu próxima aventura te espera</p>
+            <h1 id="hero-title">Los mundos pequeños,<br><span>las grandes historias.</span></h1>
+            <p class="hero-copy">Descubre propuestas independientes y guarda los juegos que quieres tener siempre cerca.</p>
+        {% endif %}
     </section>
+
+    {% if for_you %}
+        <section class="featured" aria-labelledby="for-you-title">
+            <div class="featured-head">
+                <div>
+                    <p class="eyebrow">Según tu biblioteca</p>
+                    <h2 id="for-you-title">Elegidos para ti</h2>
+                    <p class="featured-note">Porque te gustan {{ favourite_genres|join:", " }}.</p>
+                </div>
+                <a class="back-link" href="{% url 'explorar' %}?genre={{ favourite_genres.0|urlencode }}">Más como estos ↗</a>
+            </div>
+            <div class="game-grid">
+                {% for game in for_you %}
+                    {% include 'partials/_game_card.html' with game=game cover_loading='eager' %}
+                {% endfor %}
+            </div>
+        </section>
+    {% endif %}
 
     {% if featured %}
         <section class="featured" aria-labelledby="featured-title">
