@@ -43,5 +43,9 @@
                 <strong class="gauge-value">{{ chart.percentage }}%</strong>
             {% endif %}
         </div>
+        {% if chart.levels %}
+            <p class="chart-hint">Haz clic en un elemento del gráfico para ver su desglose.</p>
+            <div class="chart-level" hidden></div>
+        {% endif %}
     {% endif %}
 </article>

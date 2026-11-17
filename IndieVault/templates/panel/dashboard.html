@@ -1,5 +1,5 @@
 {% extends 'panel/base_panel.html' %}
-{% load static %}
+{% load static indievault_tags %}
 
 {% block panel_content %}
 <div class="panel-actions">
@@ -118,6 +118,6 @@
 </div>
 
 {{ dashboard_charts|json_script:"chart-specs" }}
-<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
-<script src="{% static 'js/stats-charts.js' %}"></script>
+<script src="{% static_v 'vendor/chart.umd.min.js' %}"></script>
+<script src="{% static_v 'js/stats-charts.js' %}"></script>
 {% endblock %}

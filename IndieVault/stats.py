@@ -27,6 +27,32 @@ def _genres_counter(games):
     return counter
 
 
+def _level(title, labels, values, colors='lilac', horizontal=True,
+           empty_text='Sin datos para este desglose.'):
+    """Sub-gráfico que se abre al pulsar un elemento del gráfico padre."""
+    return {
+        'title': title,
+        'type': 'bar',
+        'horizontal': horizontal,
+        'labels': labels,
+        'values': values,
+        'colors': colors,
+        'empty': not labels or not any(values),
+        'empty_text': empty_text,
+    }
+
+
+def _top_genre_level(games, title, limit=6):
+    """Desglose de géneros para un subconjunto de juegos."""
+    genres = _genres_counter(games).most_common(limit)
+    return _level(
+        title,
+        [genre for genre, _ in genres],
+        [count for _, count in genres],
+        empty_text='Sin géneros registrados en este grupo.',
+    )
+
+
 def user_stats(user):
     entries = list(LibraryEntry.objects.filter(user=user).select_related('game'))
     total_entries = len(entries)
@@ -37,6 +63,56 @@ def user_stats(user):
         for genre in entry.game.genre_list():
             genre_counts[genre] += 1
     top_genres = genre_counts.most_common(8)
+
+    # Segundo nivel del gráfico por estado: qué géneros hay dentro de cada uno.
+    status_games = {status: [] for status in STATUS_VALUES}
+    for entry in entries:
+        status_games.setdefault(entry.status, []).append(entry.game)
+    status_levels = {}
+    for status in STATUS_VALUES:
+        games_in_status = status_games.get(status, [])
+        if not games_in_status:
+            continue
+        status_levels[status] = _top_genre_level(
+            games_in_status,
+            f'Géneros en «{status.lower()}»',
+        )
+
+    # Cada género se abre en un desglose por estado de lectura.
+    genre_entries = {}
+    for entry in entries:
+        for genre in entry.game.genre_list():
+            genre_entries.setdefault(genre, []).append(entry)
+    genre_levels = {}
+    for genre, _ in top_genres:
+        subset = genre_entries[genre]
+        counts = Counter(entry.status for entry in subset)
+        genre_levels[genre] = _level(
+            f'Estados en {genre}',
+            STATUS_VALUES,
+            [counts.get(status, 0) for status in STATUS_VALUES],
+            colors=['muted', 'lime', 'lilac'],
+            horizontal=False,
+            empty_text='Sin juegos en este género.',
+        )
+
+    # El progreso separa lo terminado de lo que sigue pendiente.
+    done_games = [
+        entry.game for entry in entries
+        if entry.status == LibraryEntry.Status.DONE.value
+    ]
+    pending_games = [
+        entry.game for entry in entries
+        if entry.status != LibraryEntry.Status.DONE.value
+    ]
+    progress_levels = {
+        'Terminados': _top_genre_level(
+            done_games, 'Géneros que ya terminaste'
+        ),
+        'Pendientes': _top_genre_level(
+            pending_games, 'Géneros que te quedan por terminar'
+        ),
+    }
 
     done = status_counts.get(LibraryEntry.Status.DONE.value, 0)
     progress = round(done * 100 / total_entries) if total_entries else 0
@@ -55,6 +131,7 @@ def user_stats(user):
             'labels': STATUS_VALUES,
             'values': [status_counts.get(status, 0) for status in STATUS_VALUES],
             'colors': ['muted', 'lime', 'lilac'],
+            'levels': status_levels,
             'empty': total_entries == 0,
             'empty_text': 'Aún no has guardado ningún juego.',
         },
@@ -67,6 +144,7 @@ def user_stats(user):
             'labels': [genre for genre, _ in top_genres],
             'values': [count for _, count in top_genres],
             'colors': 'lime',
+            'levels': genre_levels,
             'empty': not top_genres,
             'empty_text': 'Guarda juegos para ver tus géneros favoritos.',
         },
@@ -80,6 +158,7 @@ def user_stats(user):
             'colors': ['lime', 'line'],
             'gauge': True,
             'percentage': progress,
+            'levels': progress_levels,
             'empty': total_entries == 0,
             'empty_text': 'Todavía no hay progreso que mostrar.',
         },
@@ -122,28 +201,77 @@ def _users_last_months(months=6):
     keys.reverse()
 
     counts = Counter()
+    by_weekday = {key: Counter() for key in keys}
     for joined in User.objects.values_list('date_joined', flat=True):
         joined = timezone.localtime(joined)
-        counts[(joined.year, joined.month)] += 1
+        key = (joined.year, joined.month)
+        counts[key] += 1
+        if key in by_weekday:
+            by_weekday[key][joined.weekday()] += 1
 
     labels = [f'{MONTH_ABBR[m - 1]} {y}' for y, m in keys]
     values = [counts.get((y, m), 0) for y, m in keys]
-    return labels, values
+
+    # Cada mes se abre en un sub-gráfico con las altas por día de la semana.
+    weekday_labels = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom']
+    levels = {}
+    for key, label in zip(keys, labels):
+        weekday_counts = by_weekday[key]
+        levels[label] = _level(
+            f'Altas por día · {label}',
+            weekday_labels,
+            [weekday_counts.get(index, 0) for index in range(7)],
+            horizontal=False,
+            empty_text='Sin registros ese mes.',
+        )
+
+    return labels, values, levels
 
 
 def admin_stats():
     games = list(Game.objects.all())
-    top_genres = _genres_counter(games).most_common(10)
+
+    genre_games = {}
+    for game in games:
+        for genre in game.genre_list():
+            genre_games.setdefault(genre, []).append(game)
+    top_genres = Counter(
+        {genre: len(items) for genre, items in genre_games.items()}
+    ).most_common(10)
 
     free = sum(1 for game in games if game.is_free())
     paid = len(games) - free
+    free_games = [game for game in games if game.is_free()]
+    paid_games = [game for game in games if not game.is_free()]
+
+    # Desglose por estudio dentro de cada género.
+    genre_levels = {}
+    for genre, _ in top_genres:
+        studios = Counter(
+            game.studio for game in genre_games[genre] if game.studio
+        ).most_common(6)
+        genre_levels[genre] = _level(
+            f'Estudios en {genre}',
+            [studio for studio, _ in studios],
+            [count for _, count in studios],
+            empty_text='Sin estudios registrados en este género.',
+        )
+
+    price_levels = {
+        'Gratis': _top_genre_level(
+            free_games, 'Géneros entre los juegos gratis'
+        ),
+        'Pagos': _top_genre_level(
+            paid_games, 'Géneros entre los juegos pagos'
+        ),
+    }
 
     status_counts = Counter(
         LibraryEntry.objects.values_list('status', flat=True)
     )
     total_entries = sum(status_counts.values())
 
-    user_labels, user_values = _users_last_months(6)
+    user_labels, user_values, user_levels = _users_last_months(6)
 
     # --- Datos para los gráficos atípicos del panel -------------------------
 
@@ -169,11 +297,26 @@ def admin_stats():
             ),
         })
 
-    decade_counts = Counter(
-        f'{game.year // 10 * 10}s' for game in games if game.year
-    )
+    year_counts = Counter(game.year for game in games if game.year)
+    decade_counts = Counter()
+    for year, count in year_counts.items():
+        decade_counts[f'{year // 10 * 10}s'] += count
     decade_labels = sorted(decade_counts)
     decade_values = [decade_counts[label] for label in decade_labels]
+
+    # Cada década se abre en un sub-gráfico con sus años.
+    decade_levels = {}
+    for label in decade_labels:
+        start = int(label[:-1])
+        years = sorted(year for year in year_counts if start <= year < start + 10)
+        decade_levels[label] = _level(
+            f'Juegos por año en los {label}',
+            [str(year) for year in years],
+            [year_counts[year] for year in years],
+            colors='lime',
+            horizontal=False,
+            empty_text='Sin años registrados en esta década.',
+        )
 
     studio_counts = Counter(game.studio for game in games if game.studio)
     top_studios = studio_counts.most_common(6)
@@ -201,6 +344,7 @@ def admin_stats():
             'labels': [genre for genre, _ in top_genres],
             'values': [count for _, count in top_genres],
             'colors': 'lime',
+            'levels': genre_levels,
             'empty': not top_genres,
             'empty_text': 'No hay juegos en el catálogo.',
         },
@@ -212,6 +356,7 @@ def admin_stats():
             'labels': ['Gratis', 'Pagos'],
             'values': [free, paid],
             'colors': ['lime', 'lilac'],
+            'levels': price_levels,
             'empty': not games,
             'empty_text': 'No hay juegos en el catálogo.',
         },
@@ -234,6 +379,7 @@ def admin_stats():
             'labels': user_labels,
             'values': user_values,
             'colors': 'lime',
+            'levels': user_levels,
             'empty': sum(user_values) == 0,
             'empty_text': 'Sin registros en los últimos 6 meses.',
         },
@@ -256,6 +402,7 @@ def admin_stats():
             'labels': decade_labels,
             'values': decade_values,
             'colors': ['lime', 'lilac', 'muted', 'lime', 'lilac', 'muted'],
+            'levels': decade_levels,
             'empty': not decade_labels,
             'empty_text': 'No hay años registrados.',
         },

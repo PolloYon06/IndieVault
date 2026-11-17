@@ -1,7 +1,10 @@
 import hashlib
+import os
 import re
 
 from django import template
+from django.contrib.staticfiles import finders
+from django.templatetags.static import static as static_url
 from django.urls import reverse
 
 register = template.Library()
@@ -108,3 +111,20 @@ def avatar_url(user):
         return profile.avatar.url
     except ValueError:
         return ''
+
+
+@register.simple_tag
+def static_v(path):
+    """URL de un estático con su fecha de modificación como versión.
+
+    Nginx cachea /static durante una semana, así que al cambiar un archivo
+    cambia el parámetro y los navegadores piden la versión nueva.
+    """
+    url = static_url(path)
+    absolute = finders.find(path)
+    if absolute:
+        try:
+            return f'{url}?v={int(os.path.getmtime(absolute))}'
+        except OSError:
+            pass
+    return url

@@ -698,6 +698,7 @@ class StatsTests(TestCase):
         self.assertContains(response, 'Mis géneros más guardados')
         self.assertContains(response, 'Mi progreso')
         self.assertContains(response, 'Mi cobertura del catálogo')
+        self.assertContains(response, 'Haz clic en un elemento del gráfico')
 
     def test_user_stats_empty_state(self):
         empty = get_user_model().objects.create_user(
@@ -712,6 +713,24 @@ class StatsTests(TestCase):
         self.assertEqual(stats['charts'][0]['values'], [0, 0, 1])
         self.assertEqual(stats['charts'][3]['values'][0], 1)
         self.assertEqual(stats['coverage'], round(100 / Game.objects.count()))
+
+        # El gráfico por estado abre un desglose de géneros.
+        status_chart = stats['charts'][0]
+        self.assertIn('Terminado', status_chart['levels'])
+        level = status_chart['levels']['Terminado']
+        self.assertEqual(level['type'], 'bar')
+        self.assertEqual(len(level['labels']), len(level['values']))
+
+        # Los géneros se desglosan por estado y el progreso por géneros.
+        genre_chart = stats['charts'][1]
+        first_genre = genre_chart['labels'][0]
+        self.assertIn(first_genre, genre_chart['levels'])
+        self.assertEqual(len(genre_chart['levels'][first_genre]['values']), 3)
+
+        progress_chart = stats['charts'][2]
+        self.assertEqual(
+            set(progress_chart['levels']), {'Terminados', 'Pendientes'}
+        )
 
     def test_admin_stats_requires_staff(self):
         self.client.force_login(self.user)
@@ -1142,6 +1161,37 @@ class AtypicalStatsTests(TestCase):
         self.assertTrue(
             {'radar', 'polarArea', 'bubble', 'heatmap', 'mosaic'}.issubset(chart_types)
         )
+
+    def test_admin_charts_have_drilldown_levels(self):
+        charts = {chart['id']: chart for chart in admin_stats()['charts']}
+
+        genre_levels = charts['admin-genres']['levels']
+        self.assertIn('Puzzle', genre_levels)
+        self.assertEqual(genre_levels['Puzzle']['type'], 'bar')
+        self.assertEqual(
+            len(genre_levels['Puzzle']['labels']),
+            len(genre_levels['Puzzle']['values']),
+        )
+
+        price_levels = charts['admin-price']['levels']
+        self.assertEqual(set(price_levels), {'Gratis', 'Pagos'})
+        self.assertTrue(price_levels['Gratis']['labels'])
+
+        decade_levels = charts['admin-decades']['levels']
+        self.assertIn('2020s', decade_levels)
+        self.assertIn('2020', decade_levels['2020s']['labels'])
+        self.assertIn('2024', decade_levels['2020s']['labels'])
+
+        user_levels = charts['admin-users']['levels']
+        self.assertEqual(len(user_levels), 6)
+        first_month = next(iter(user_levels.values()))
+        self.assertEqual(len(first_month['labels']), 7)
+
+    def test_admin_stats_renders_drilldown_hint(self):
+        self.client.force_login(self.staff)
+        response = self.client.get(reverse('panel_stats'))
+        self.assertContains(response, 'Haz clic en un elemento del gráfico')
+        self.assertContains(response, 'chart-level')
 
     def test_dashboard_renders_charts(self):
         self.client.force_login(self.staff)

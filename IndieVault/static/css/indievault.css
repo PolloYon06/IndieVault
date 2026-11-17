@@ -1743,6 +1743,68 @@ a.quick-action:hover,
     text-align: center;
 }
 
+/* Desgloses: segundo nivel de los gráficos */
+
+.chart-hint {
+    margin: 10px 0 0;
+    color: var(--muted);
+    font-size: 0.72rem;
+    line-height: 1.4;
+}
+
+.chart-level {
+    margin-top: 16px;
+    padding-top: 14px;
+    border-top: 1px solid var(--line);
+}
+
+.chart-level[hidden] { display: none; }
+
+.chart-level-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 12px;
+}
+
+.chart-level-title {
+    margin: 0;
+    font-size: 0.86rem;
+    font-weight: 650;
+    letter-spacing: -0.01em;
+}
+
+.chart-back {
+    flex: 0 0 auto;
+    padding: 5px 12px;
+    background: transparent;
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    color: var(--muted);
+    font: inherit;
+    font-size: 0.72rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: color 0.2s ease, border-color 0.2s ease;
+}
+
+.chart-back:hover {
+    color: var(--ink);
+    border-color: var(--lime);
+}
+
+.chart-back:focus-visible {
+    outline: 2px solid var(--lime);
+    outline-offset: 2px;
+}
+
+.chart-level-box { height: 210px; }
+
+.chart-level .chart-empty {
+    min-height: 130px;
+}
+
 @media (max-width: 760px) {
     .stats-grid { grid-template-columns: 1fr; }
     .stat-card { padding: 20px; }

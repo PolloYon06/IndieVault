@@ -1,5 +1,5 @@
 {% extends 'base.html' %}
-{% load static %}
+{% load static indievault_tags %}
 
 {% block title %}{{ page_title }} · IndieVault{% endblock %}
 {% block body_class %}stats-page{% endblock %}
@@ -28,6 +28,10 @@
                             <strong class="gauge-value">{{ chart.percentage }}%</strong>
                         {% endif %}
                     </div>
+                    {% if chart.levels %}
+                        <p class="chart-hint">Haz clic en un elemento del gráfico para ver su desglose.</p>
+                        <div class="chart-level" hidden></div>
+                    {% endif %}
                 {% endif %}
             </article>
         {% endfor %}
@@ -35,6 +39,6 @@
 </section>
 
 {{ charts|json_script:"chart-specs" }}
-<script src="{% static 'vendor/chart.umd.min.js' %}"></script>
-<script src="{% static 'js/stats-charts.js' %}"></script>
+<script src="{% static_v 'vendor/chart.umd.min.js' %}"></script>
+<script src="{% static_v 'js/stats-charts.js' %}"></script>
 {% endblock %}
