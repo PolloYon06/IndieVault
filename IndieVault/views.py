@@ -8,7 +8,7 @@ from django.contrib.auth.decorators import login_required
 from django.contrib.auth.forms import AuthenticationForm
 from django.core.paginator import Paginator
 from django.db.models import Q
-from django.http import HttpResponseRedirect
+from django.http import Http404, HttpResponse, HttpResponseRedirect
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.utils.http import url_has_allowed_host_and_scheme
@@ -271,6 +271,24 @@ def perfil(request):
         'form': form,
         'profile': profile,
     })
+
+
+def profile_avatar(request, user_id):
+    """Entrega la foto de perfil que vive en la base de datos."""
+    row = (
+        Profile.objects.filter(user_id=user_id)
+        .values_list('avatar_data', 'avatar_mime')
+        .first()
+    )
+    if not row or not row[0]:
+        raise Http404('Este perfil no tiene foto.')
+
+    payload = bytes(row[0])
+    response = HttpResponse(payload, content_type=row[1] or 'image/jpeg')
+    # La URL lleva la versión de la foto, así que se puede cachear sin miedo.
+    response['Cache-Control'] = 'public, max-age=604800, immutable'
+    response['X-Content-Type-Options'] = 'nosniff'
+    return response
 
 
 ACCENT_PRESETS = [

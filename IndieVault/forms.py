@@ -3,7 +3,7 @@ from django.contrib.auth import get_user_model
 from django.contrib.auth.password_validation import validate_password
 from django.core.exceptions import ValidationError
 
-from .appearance import DEFAULT_ACCENT, HEX_RE, dominant_accent
+from .appearance import DEFAULT_ACCENT, HEX_RE, dominant_accent, prepare_avatar
 from .models import Enterprise, Game, Profile
 
 
@@ -156,10 +156,16 @@ class ProfileForm(forms.ModelForm):
         label='Correo',
         widget=forms.EmailInput(attrs={'autocomplete': 'email'}),
     )
+    avatar = forms.ImageField(
+        required=False,
+        label='Foto de perfil',
+        help_text='JPG, PNG o WebP. Máximo 4 MB. Se guarda en tu cuenta.',
+        widget=forms.ClearableFileInput(attrs={'accept': 'image/*'}),
+    )
 
     class Meta:
         model = Profile
-        fields = ['avatar', 'bio']
+        fields = ['bio']
         widgets = {
             'bio': forms.Textarea(attrs={
                 'rows': 3,
@@ -167,16 +173,15 @@ class ProfileForm(forms.ModelForm):
             }),
         }
         labels = {
-            'avatar': 'Foto de perfil',
             'bio': 'Sobre mí',
         }
         help_texts = {
-            'avatar': 'JPG, PNG o WebP. Máximo 4 MB.',
             'bio': 'Una frase corta que se mostrará en tu perfil.',
         }
 
     def __init__(self, *args, user=None, **kwargs):
         self.user = user
+        self._avatar_payload = None
         super().__init__(*args, **kwargs)
 
         if user is not None:
@@ -186,12 +191,26 @@ class ProfileForm(forms.ModelForm):
 
     def clean_avatar(self):
         avatar = self.cleaned_data.get('avatar')
-        if avatar and getattr(avatar, 'size', 0) > 4 * 1024 * 1024:
-            raise ValidationError('La imagen no puede superar los 4 MB.')
+        self._avatar_payload = None
+        if not avatar:
+            return avatar
+
+        try:
+            self._avatar_payload = prepare_avatar(avatar)
+        except ValueError as error:
+            raise ValidationError(str(error))
+        except Exception:
+            raise ValidationError('No pudimos leer la imagen. Prueba con un JPG o PNG.')
         return avatar
 
     def save(self, commit=True):
         profile = super().save(commit=False)
+
+        if self._avatar_payload:
+            profile.avatar_data, profile.avatar_mime = self._avatar_payload
+            profile.avatar_version = (profile.avatar_version or 0) + 1
+            # La ruta en media/ deja de usarse: la foto ya está en la base.
+            profile.avatar = ''
 
         if self.user is not None:
             self.user.first_name = self.cleaned_data.get('first_name', '').strip()
@@ -203,7 +222,8 @@ class ProfileForm(forms.ModelForm):
         if commit:
             profile.save()
             if profile.auto_accent:
-                profile.accent = dominant_accent(profile.avatar) if profile.avatar else ''
+                source = profile.accent_source()
+                profile.accent = dominant_accent(source) if source else ''
                 profile.save(update_fields=['accent'])
 
         return profile
@@ -241,7 +261,8 @@ class AppearanceForm(forms.ModelForm):
     def save(self, commit=True):
         profile = super().save(commit=False)
         if profile.auto_accent:
-            profile.accent = dominant_accent(profile.avatar) if profile.avatar else ''
+            source = profile.accent_source()
+            profile.accent = dominant_accent(source) if source else ''
         if commit:
             profile.save()
         return profile

@@ -1,12 +1,20 @@
-"""Color de acento por usuario, derivado de su foto o elegido a mano."""
+"""Foto de perfil y color de acento derivado de ella."""
 
 import colorsys
+import io
 import re
 
-from PIL import Image
+from PIL import Image, ImageOps
 
 DEFAULT_ACCENT = '#d6f36a'
 HEX_RE = re.compile(r'^#[0-9a-fA-F]{6}$')
+
+# Las fotos se guardan en la base para que se vean igual en todos los equipos,
+# así que se normalizan antes de guardarlas y ocupan poco.
+AVATAR_MAX_BYTES = 4 * 1024 * 1024
+AVATAR_MAX_SIDE = 512
+AVATAR_QUALITY = 85
+AVATAR_MIME = 'image/jpeg'
 
 
 def _to_hex(red, green, blue):
@@ -14,14 +22,49 @@ def _to_hex(red, green, blue):
     return '#{:02x}{:02x}{:02x}'.format(*components)
 
 
-def dominant_accent(image_field, default=DEFAULT_ACCENT):
+def _open_image(source):
+    """Abre una imagen desde bytes o desde un archivo de Django."""
+    if isinstance(source, (bytes, bytearray, memoryview)):
+        return Image.open(io.BytesIO(bytes(source)))
+    return Image.open(source.open('rb'))
+
+
+def prepare_avatar(uploaded_file):
+    """Valida la foto y la devuelve como JPEG pequeño, listo para la base."""
+    if getattr(uploaded_file, 'size', 0) > AVATAR_MAX_BYTES:
+        raise ValueError('La foto supera los 4 MB.')
+
+    uploaded_file.seek(0)
+    image = Image.open(uploaded_file)
+    image.load()
+    image = ImageOps.exif_transpose(image).convert('RGB')
+    image.thumbnail((AVATAR_MAX_SIDE, AVATAR_MAX_SIDE))
+
+    buffer = io.BytesIO()
+    image.save(
+        buffer,
+        format='JPEG',
+        quality=AVATAR_QUALITY,
+        optimize=True,
+        progressive=True,
+    )
+    uploaded_file.seek(0)
+    return buffer.getvalue(), AVATAR_MIME
+
+
+def normalize_avatar_bytes(data):
+    """Misma normalización, para fotos antiguas que viven en disco."""
+    return prepare_avatar(io.BytesIO(data))
+
+
+def dominant_accent(source, default=DEFAULT_ACCENT):
     """Color más representativo de una imagen, evitando grises y extremos."""
-    if not image_field:
+    if not source:
         return default
 
     try:
-        with image_field.open('rb') as handle:
-            image = Image.open(handle).convert('RGB')
+        with _open_image(source) as image:
+            image = image.convert('RGB')
             image.thumbnail((80, 80))
             quantized = image.quantize(colors=8)
             palette = quantized.getpalette() or []

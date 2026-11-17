@@ -98,6 +98,11 @@ class Profile(models.Model):
         related_name='profile',
     )
     avatar = models.ImageField(upload_to='avatars/', blank=True)
+    # La foto se guarda también en la base para que viaje con los datos y se
+    # vea igual en todos los equipos. `avatar` queda como ruta heredada.
+    avatar_data = models.BinaryField(blank=True, null=True, editable=False)
+    avatar_mime = models.CharField(max_length=40, blank=True)
+    avatar_version = models.PositiveIntegerField(default=0)
     bio = models.CharField(max_length=200, blank=True)
     accent = models.CharField(
         max_length=7,
@@ -115,6 +120,10 @@ class Profile(models.Model):
 
     def __str__(self):
         return f'Perfil de {self.user.username}'
+
+    def accent_source(self):
+        """Origen que entiende `dominant_accent`: bytes o el archivo heredado."""
+        return self.avatar_data or self.avatar or None
 
 
 class LibraryEntry(models.Model):

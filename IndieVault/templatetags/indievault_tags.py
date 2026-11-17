@@ -2,6 +2,7 @@ import hashlib
 import re
 
 from django import template
+from django.urls import reverse
 
 register = template.Library()
 
@@ -86,9 +87,21 @@ def initials(user):
 
 @register.filter
 def avatar_url(user):
-    """URL del avatar o cadena vacía si la cuenta no tiene uno."""
+    """URL del avatar o cadena vacía si la cuenta no tiene uno.
+
+    Prioriza la foto guardada en la base; si es una cuenta antigua, cae al
+    archivo que todavía esté en media/.
+    """
     profile = getattr(user, 'profile', None)
-    if profile is None or not profile.avatar:
+    if profile is None:
+        return ''
+
+    if profile.avatar_data:
+        url = reverse('profile_avatar', args=[profile.user_id])
+        version = profile.avatar_version
+        return f'{url}?v={version}' if version else url
+
+    if not profile.avatar:
         return ''
 
     try:

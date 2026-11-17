@@ -6,6 +6,7 @@ from pathlib import Path
 
 from django.contrib.auth import get_user_model
 from django.core.files.base import ContentFile
+from django.core.files.storage import default_storage
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.core.management import call_command
 from django.test import Client, TestCase, override_settings
@@ -14,6 +15,7 @@ from PIL import Image as PILImage
 
 from .models import Enterprise, Game, LibraryEntry, Profile
 from .stats import admin_stats, user_stats
+from .templatetags.indievault_tags import avatar_url
 
 
 class RouteTests(TestCase):
@@ -1012,15 +1014,13 @@ class ProfileTests(TestCase):
             'avatar.png', self.tiny_png, content_type='image/png'
         )
 
-        with tempfile.TemporaryDirectory() as media_root:
-            with override_settings(MEDIA_ROOT=media_root):
-                response = self.client.post(reverse('perfil'), {
-                    'first_name': 'Ada',
-                    'last_name': 'Lovelace',
-                    'email': 'ada@example.com',
-                    'bio': 'Exploradora de mundos pequeños.',
-                    'avatar': avatar,
-                })
+        response = self.client.post(reverse('perfil'), {
+            'first_name': 'Ada',
+            'last_name': 'Lovelace',
+            'email': 'ada@example.com',
+            'bio': 'Exploradora de mundos pequeños.',
+            'avatar': avatar,
+        })
 
         self.assertRedirects(response, reverse('perfil'))
         self.user.refresh_from_db()
@@ -1029,7 +1029,66 @@ class ProfileTests(TestCase):
         self.assertEqual(self.user.last_name, 'Lovelace')
         self.assertEqual(self.user.email, 'ada@example.com')
         self.assertEqual(profile.bio, 'Exploradora de mundos pequeños.')
-        self.assertTrue(profile.avatar.name.startswith('avatars/'))
+        self.assertTrue(profile.avatar_data)
+        self.assertEqual(profile.avatar_mime, 'image/jpeg')
+        self.assertEqual(profile.avatar_version, 1)
+        self.assertEqual(profile.avatar, '')
+
+    def test_avatar_is_served_from_database(self):
+        self.client.force_login(self.user)
+        self.client.post(reverse('perfil'), {
+            'avatar': SimpleUploadedFile('avatar.png', self.tiny_png, content_type='image/png'),
+        })
+
+        response = self.client.get(reverse('profile_avatar', args=[self.user.id]))
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response['Content-Type'], 'image/jpeg')
+        self.assertTrue(response.content.startswith(b'\xff\xd8'))
+        self.assertIn('immutable', response['Cache-Control'])
+
+    def test_avatar_url_uses_stored_photo(self):
+        self.client.force_login(self.user)
+        self.client.post(reverse('perfil'), {
+            'avatar': SimpleUploadedFile('avatar.png', self.tiny_png, content_type='image/png'),
+        })
+
+        user = get_user_model().objects.get(pk=self.user.pk)
+        url = avatar_url(user)
+        self.assertTrue(url.startswith(reverse('profile_avatar', args=[self.user.id])))
+        self.assertIn('?v=1', url)
+
+    def test_avatar_url_falls_back_to_legacy_file(self):
+        with tempfile.TemporaryDirectory() as media_root:
+            with override_settings(MEDIA_ROOT=media_root):
+                profile = Profile.objects.get(user=self.user)
+                profile.avatar.save('vieja.png', ContentFile(self.tiny_png), save=True)
+                user = get_user_model().objects.get(pk=self.user.pk)
+                self.assertTrue(avatar_url(user).startswith('/media/avatars/'))
+
+    def test_invalid_avatar_is_rejected(self):
+        self.client.force_login(self.user)
+        response = self.client.post(reverse('perfil'), {
+            'avatar': SimpleUploadedFile(
+                'texto.png', b'esto no es una imagen', content_type='image/png'
+            ),
+        })
+        self.assertEqual(response.status_code, 200)
+        self.assertIn('avatar', response.context['form'].errors)
+        self.assertFalse(Profile.objects.get(user=self.user).avatar_data)
+
+    def test_import_avatars_command_moves_legacy_photo(self):
+        with tempfile.TemporaryDirectory() as media_root:
+            with override_settings(MEDIA_ROOT=media_root):
+                profile = Profile.objects.get(user=self.user)
+                profile.avatar.save('vieja.png', ContentFile(self.tiny_png), save=True)
+
+                call_command('import_avatars')
+
+                profile.refresh_from_db()
+                self.assertTrue(profile.avatar_data)
+                self.assertEqual(profile.avatar_mime, 'image/jpeg')
+                self.assertEqual(profile.avatar_version, 1)
+                self.assertTrue(default_storage.exists(profile.avatar.name))
 
 
 class StaffExperienceTests(TestCase):
@@ -1193,3 +1252,21 @@ class AppearanceTests(TestCase):
         red, green, blue = (int(accent[i:i + 2], 16) for i in (1, 3, 5))
         self.assertGreater(red, green)
         self.assertGreater(red, blue)
+
+    def test_auto_accent_uses_uploaded_photo(self):
+        buffer = BytesIO()
+        PILImage.new('RGB', (120, 120), (30, 90, 210)).save(buffer, format='PNG')
+        self.client.force_login(self.user)
+
+        response = self.client.post(reverse('perfil'), {
+            'avatar': SimpleUploadedFile(
+                'azul.png', buffer.getvalue(), content_type='image/png'
+            ),
+        })
+        self.assertRedirects(response, reverse('perfil'))
+
+        profile = Profile.objects.get(user=self.user)
+        accent = profile.accent
+        self.assertRegex(accent, r'^#[0-9a-f]{6}$')
+        red, green, blue = (int(accent[i:i + 2], 16) for i in (1, 3, 5))
+        self.assertGreater(blue, red)
