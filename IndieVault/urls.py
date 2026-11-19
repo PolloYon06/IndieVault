@@ -5,6 +5,7 @@ from . import panel_views, views
 urlpatterns = [
     path('', views.index, name='index'),
     path('explorar/', views.explorar, name='explorar'),
+    path('explorar/catalogo/', views.explorar_catalogo, name='explorar_catalogo'),
     path('biblioteca/', views.biblioteca, name='biblioteca'),
     path('estadisticas/', views.estadisticas, name='estadisticas'),
     path('perfil/', views.perfil, name='perfil'),

@@ -1,73 +1,140 @@
 {% extends 'base.html' %}
 
-{% block title %}Explorar juegos · IndieVault{% endblock %}
+{% block title %}{% if personalized %}Elegidos para ti{% else %}Catálogo de juegos{% endif %} · IndieVault{% endblock %}
 {% block body_class %}explore-page{% endblock %}
 
 {% block content %}
     <section class="page-head" aria-labelledby="page-title">
-        <p class="eyebrow">Ruta 01 · Descubrir</p>
-        <h1 id="page-title">Explora nuevos <span>mundos</span></h1>
-        <p class="hero-copy">Una selección de juegos independientes ordenados para que encuentres rápido ese que quieres probar.</p>
+        {% if personalized %}
+            <h1 id="page-title">Aventuras <span>para ti</span></h1>
+        {% elif genre in genres %}
+            <h1 id="page-title">Explora juegos de <span>{{ genre }}</span></h1>
+        {% elif price == 'free' %}
+            <h1 id="page-title">Descubre juegos <span>gratuitos</span></h1>
+        {% elif price == '5-15' %}
+            <h1 id="page-title">Descubre juegos <span>{{ price_label|lower }}</span></h1>
+        {% elif price %}
+            <h1 id="page-title">Descubre juegos por <span>{{ price_label|lower }}</span></h1>
+        {% elif sort == 'added' %}
+            <h1 id="page-title">Las últimas <span>incorporaciones</span></h1>
+        {% else %}
+            <h1 id="page-title">Encuentra tu próximo <span>mundo</span></h1>
+        {% endif %}
+        <p class="hero-copy">
+            {% if personalized and has_recommendations %}
+                Porque te gustan los juegos de {{ recommendation_genres }}.
+            {% elif personalized %}
+                Guarda juegos del catálogo para recibir recomendaciones según tus géneros favoritos.
+            {% elif price == 'free' %}
+                Encuentra juegos independientes gratis{% if genre in genres %} de la categoría {{ genre }}{% endif %}.
+            {% elif price == '5-15' %}
+                Encuentra juegos independientes{% if genre in genres %} de la categoría {{ genre }}{% endif %} con precios {{ price_label|lower }}.
+            {% elif price %}
+                Encuentra juegos independientes{% if genre in genres %} de la categoría {{ genre }}{% endif %} por {{ price_label|lower }}.
+            {% elif genre in genres %}
+                Descubre juegos independientes de la categoría {{ genre }}.
+            {% elif sort == 'added' %}
+                Explora los juegos incorporados más recientemente a IndieVault.
+            {% else %}
+                Busca por título o estudio y encuentra juegos independientes para tu próxima aventura.
+            {% endif %}
+        </p>
+        <a class="back-link explore-discover-link" href="{% url 'explorar' %}">← Volver a descubrir</a>
     </section>
 
+    {% url 'explorar_catalogo' as catalog_url %}
     <section class="page-shell" aria-labelledby="catalogo-title">
-        <div class="filter-bar">
-            <form class="filter-form" method="get" action="{% url 'explorar' %}">
-                <input class="search-input" type="search" name="q" value="{{ q }}" placeholder="Buscar por título o estudio…" aria-label="Buscar juegos">
-                <input type="hidden" name="genre" value="{{ genre }}">
-                <select class="filter-select" name="sort" aria-label="Ordenar por">
-                    <option value=""{% if sort == '' %} selected{% endif %}>Relevancia</option>
-                    <option value="az"{% if sort == 'az' %} selected{% endif %}>A → Z</option>
-                    <option value="za"{% if sort == 'za' %} selected{% endif %}>Z → A</option>
-                    <option value="price_asc"{% if sort == 'price_asc' %} selected{% endif %}>Precio menor a mayor</option>
-                    <option value="price_desc"{% if sort == 'price_desc' %} selected{% endif %}>Precio mayor a menor</option>
-                    <option value="newest"{% if sort == 'newest' %} selected{% endif %}>Más recientes</option>
-                </select>
-                <select class="filter-select" name="price" aria-label="Filtrar por precio">
-                    <option value=""{% if price == '' %} selected{% endif %}>Cualquier precio</option>
-                    <option value="free"{% if price == 'free' %} selected{% endif %}>Gratis</option>
-                    <option value="5"{% if price == '5' %} selected{% endif %}>Menos de $5</option>
-                    <option value="10"{% if price == '10' %} selected{% endif %}>Menos de $10</option>
-                </select>
-                <button class="button" type="submit">Buscar</button>
-            </form>
+        <div id="catalogo" class="explore-catalog-head" tabindex="-1">
+            {% if personalized %}
+                <h2 id="catalogo-title">Elegidos para ti</h2>
+                <a class="back-link" href="{{ catalog_url }}">Ver catálogo completo</a>
+            {% else %}
+                <h2 id="catalogo-title">Catálogo</h2>
+            {% endif %}
         </div>
+        {% if not personalized or has_recommendations %}
+            <div class="filter-bar">
+                <form class="filter-form" method="get" action="{{ catalog_url }}">
+                    {% if personalized %}
+                        <input type="hidden" name="coleccion" value="para-ti">
+                    {% endif %}
+                    <input class="search-input" type="search" name="q" value="{{ q }}" placeholder="Buscar por título o estudio…" aria-label="Buscar juegos">
+                    <input type="hidden" name="genre" value="{{ genre }}">
+                    <select class="filter-select" name="sort" aria-label="Ordenar por">
+                        <option value=""{% if sort == '' %} selected{% endif %}>Relevancia</option>
+                        <option value="az"{% if sort == 'az' %} selected{% endif %}>A → Z</option>
+                        <option value="za"{% if sort == 'za' %} selected{% endif %}>Z → A</option>
+                        <option value="price_asc"{% if sort == 'price_asc' %} selected{% endif %}>Precio menor a mayor</option>
+                        <option value="price_desc"{% if sort == 'price_desc' %} selected{% endif %}>Precio mayor a menor</option>
+                        <option value="newest"{% if sort == 'newest' %} selected{% endif %}>Más recientes por lanzamiento</option>
+                        <option value="added"{% if sort == 'added' %} selected{% endif %}>Últimas incorporaciones</option>
+                    </select>
+                    <select class="filter-select" name="price" aria-label="Filtrar por precio">
+                        <option value=""{% if price == '' %} selected{% endif %}>Cualquier precio</option>
+                        {% for value, label in price_choices %}
+                            <option value="{{ value }}"{% if price == value %} selected{% endif %}>{{ label }}</option>
+                        {% endfor %}
+                        {% if custom_price_label %}
+                            <option value="{{ price }}" selected>{{ custom_price_label }}</option>
+                        {% endif %}
+                    </select>
+                    <button class="button" type="submit">Buscar</button>
+                </form>
+            </div>
 
-        <div class="toolbar chip-row" role="group" aria-label="Filtrar por género">
-            <a class="chip{% if not genre %} active{% endif %}" href="{% querystring genre=None %}"{% if not genre %} aria-pressed="true"{% endif %}>Todos</a>
-            {% for g in genres %}
-                <a class="chip{% if genre == g %} active{% endif %}" href="{% querystring genre=g %}"{% if genre == g %} aria-pressed="true"{% endif %}>{{ g }}</a>
-            {% endfor %}
-        </div>
+            <div class="toolbar chip-row" role="group" aria-label="Filtrar por género">
+                <a class="chip{% if not genre %} active{% endif %}" href="{{ catalog_url }}{% querystring catalog_params genre=None %}"{% if not genre %} aria-pressed="true"{% endif %}>Todos</a>
+                {% for g in genres %}
+                    <a class="chip{% if genre == g %} active{% endif %}" href="{{ catalog_url }}{% querystring catalog_params genre=g %}"{% if genre == g %} aria-pressed="true"{% endif %}>{{ g }}</a>
+                {% endfor %}
+            </div>
 
-        <p class="results-count">{{ games.paginator.count }} resultado{{ games.paginator.count|pluralize }}</p>
+            <p class="results-count">{{ games.paginator.count }} resultado{{ games.paginator.count|pluralize }}</p>
 
-        <div class="game-grid">
-            {% for game in games %}
-                {% if forloop.counter <= 8 %}
-                    {% include 'partials/_game_card.html' with game=game cover_loading='eager' %}
-                {% else %}
-                    {% include 'partials/_game_card.html' with game=game %}
-                {% endif %}
-            {% empty %}
-                <div class="empty-state no-results">
-                    <h2>No encontramos nada con esos filtros</h2>
-                    <p>Prueba con otro término, quita el precio o vuelve a todos los géneros.</p>
-                    <a class="button" href="{% url 'explorar' %}">Limpiar filtros <span aria-hidden="true">↗</span></a>
-                </div>
-            {% endfor %}
-        </div>
+            <div class="game-grid{% if personalized %} explore-recommendations-grid{% endif %}">
+                {% for game in games %}
+                    {% if forloop.counter <= 8 %}
+                        {% include 'partials/_game_card.html' with game=game cover_loading='eager' %}
+                    {% else %}
+                        {% include 'partials/_game_card.html' with game=game %}
+                    {% endif %}
+                {% empty %}
+                    <div class="empty-state no-results">
+                        <h2>No encontramos nada con esos filtros</h2>
+                        <p>Prueba con otro término, quita el precio o vuelve a todos los géneros.</p>
+                        <a class="button" href="{{ catalog_url }}{% if personalized %}?coleccion=para-ti{% endif %}">Limpiar filtros <span aria-hidden="true">↗</span></a>
+                    </div>
+                {% endfor %}
+            </div>
 
-        {% if games.has_other_pages %}
-            <nav class="toolbar" aria-label="Paginación del catálogo">
-                {% if games.has_previous %}
-                    <a class="button" href="{% querystring page=games.previous_page_number %}">Anterior</a>
-                {% endif %}
-                <span>Página {{ games.number }} de {{ games.paginator.num_pages }}</span>
-                {% if games.has_next %}
-                    <a class="button" href="{% querystring page=games.next_page_number %}">Siguiente</a>
-                {% endif %}
-            </nav>
+            {% if games.has_other_pages %}
+                <nav class="explore-pagination" aria-label="Paginación del catálogo">
+                    <p class="explore-pagination-summary">Página {{ games.number }} de {{ games.paginator.num_pages }}</p>
+                    {% if games.has_previous %}
+                        <a class="button" href="{% querystring pagination_params page=games.previous_page_number %}#catalogo" rel="prev">Anterior</a>
+                    {% else %}
+                        <button class="button" type="button" disabled>Anterior</button>
+                    {% endif %}
+                    <ul class="explore-page-numbers">
+                        {% for number in page_range %}
+                            <li>
+                                {% if number is None %}
+                                    <span class="explore-page-ellipsis" aria-hidden="true">…</span>
+                                {% elif number == games.number %}
+                                    <span class="button" aria-current="page" aria-label="Página {{ number }}">{{ number }}</span>
+                                {% else %}
+                                    <a class="button" href="{% querystring pagination_params page=number %}#catalogo" aria-label="{% if number == 1 %}Primera página{% elif number == games.paginator.num_pages %}Última página{% else %}Página {{ number }}{% endif %}">{{ number }}</a>
+                                {% endif %}
+                            </li>
+                        {% endfor %}
+                    </ul>
+                    {% if games.has_next %}
+                        <a class="button" href="{% querystring pagination_params page=games.next_page_number %}#catalogo" rel="next">Siguiente</a>
+                    {% else %}
+                        <button class="button" type="button" disabled>Siguiente</button>
+                    {% endif %}
+                </nav>
+            {% endif %}
         {% endif %}
     </section>
 {% endblock %}

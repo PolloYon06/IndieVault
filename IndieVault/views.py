@@ -1,6 +1,10 @@
 import json
+import re
 from collections import Counter
-from decimal import Decimal
+from decimal import Decimal, InvalidOperation, ROUND_CEILING
+from hashlib import sha256
+from time import time
+from uuid import uuid4
 
 from django.contrib import messages
 from django.contrib.auth import get_user_model
@@ -9,10 +13,13 @@ from django.contrib.auth import logout as auth_logout
 from django.contrib.auth import update_session_auth_hash
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.forms import AuthenticationForm, PasswordChangeForm
+from django.contrib.auth.views import redirect_to_login
 from django.contrib.sessions.models import Session
+from django.core import signing
+from django.core.cache import cache
 from django.core.exceptions import PermissionDenied
 from django.core.paginator import Paginator
-from django.db.models import Count, Q
+from django.db.models import Count, Exists, OuterRef, Q
 from django.http import Http404, HttpResponse, HttpResponseRedirect
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
@@ -36,47 +43,150 @@ from .stats import user_stats
 
 
 def index(request):
-    # Solo juegos con app id de Steam: son los que tienen portada real. El
-    # orden por id aprovecha el índice primario y muestra lo último importado.
-    featured = list(
-        Game.objects.exclude(steam_app_id__isnull=True).order_by('-id')[:8]
-    )
-    for_you = []
-    favourite_genres = []
-    in_library = set()
-
-    if request.user.is_authenticated:
-        saved = list(
-            LibraryEntry.objects.filter(user=request.user).select_related('game')
-        )
-        in_library = {entry.game_id for entry in saved}
-
-        genre_counts = Counter()
-        for entry in saved:
-            for genre in entry.game.genre_list():
-                genre_counts[genre] += 1
-        favourite_genres = [genre for genre, _ in genre_counts.most_common(3)]
-
-        if favourite_genres:
-            criteria = Q()
-            for genre in favourite_genres:
-                criteria |= Q(genres__icontains=genre)
-            for_you = list(
-                Game.objects.filter(criteria)
-                .exclude(pk__in=in_library)
-                .order_by('-id')[:8]
+    context = {}
+    if request.user.is_authenticated and not request.user.is_staff:
+        entries = LibraryEntry.objects.filter(user=request.user)
+        statuses = LibraryEntry.Status
+        context.update(
+            entries.aggregate(
+                saved_count=Count('pk'),
+                pending_count=Count('pk', filter=Q(status=statuses.WANT)),
+                playing_count=Count('pk', filter=Q(status=statuses.PLAYING)),
+                finished_count=Count('pk', filter=Q(status=statuses.DONE)),
             )
+        )
+        context['playing_entries'] = entries.filter(status=statuses.PLAYING).select_related(
+            'game'
+        ).order_by('game__title', 'pk')[:3]
 
-    return render(request, 'index.html', {
-        'featured': featured,
-        'for_you': for_you,
-        'favourite_genres': favourite_genres,
-        'in_library': in_library,
-    })
+    return render(request, 'index.html', context)
+
+
+EXPLORE_PRICE_CHOICES = (
+    ('free', 'Gratis'),
+    ('5', 'Menos de $5'),
+    ('5-15', 'Entre $5 y $15'),
+    ('over-15', 'Más de $15'),
+    ('10', 'Menos de $10'),
+)
+EXPLORE_PRICE_LABELS = dict(EXPLORE_PRICE_CHOICES)
+RECOMMENDATION_LIMIT = 200
+RECOMMENDATION_PAGE_SIZE = 16
+RECOMMENDATION_CACHE_TIMEOUT = 120
+RECOMMENDATION_VERSION_PARAM = 'version_recomendaciones'
+RECOMMENDATION_LIBRARY_REVISION = 'explore_library_revision'
+
+
+def _library_recommendations(user, library_revision):
+    entries = LibraryEntry.objects.filter(user=user)
+    saved_games = (
+        Game.objects.filter(library_entries__user=user).only('genres').order_by('pk')
+    )
+    genre_counts = Counter()
+    genre_labels = {}
+    library_digest = sha256()
+    for game in saved_games.iterator():
+        library_digest.update(f'{game.pk},'.encode('ascii'))
+        game_genres = set()
+        for label in game.genre_list():
+            genre = label.casefold()
+            genre_labels.setdefault(genre, label)
+            game_genres.add(genre)
+        genre_counts.update(game_genres)
+
+    top_genres = sorted(genre_counts, key=lambda genre: (-genre_counts[genre], genre))[:3]
+    labels = [genre_labels[genre] for genre in top_genres]
+    if not labels:
+        return [], '', '', 0
+
+    alternatives = '|'.join(re.escape(label) for label in labels)
+    # Treat commas as label boundaries and allow whitespace around each label.
+    pattern = rf'(?:^|,)\s*(?:{alternatives})\s*(?:,|$)'
+    # Bind the cache to this account, its saved games, and its inferred preferences.
+    library_digest.update(pattern.encode('utf-8'))
+    library_digest.update(library_revision.encode('ascii'))
+    cache_key = f'explore:recommendations:v2:{user.pk}:{library_digest.hexdigest()}'
+    selection = cache.get(cache_key)
+    if selection is None or selection[1] <= time():
+        recommendations = list(
+            Game.objects.filter(genres__iregex=pattern)
+            .filter(~Exists(entries.filter(game_id=OuterRef('pk'))))
+            .order_by('-pk')
+            .values_list('pk', 'genres')[:RECOMMENDATION_LIMIT]
+        )
+        selection = recommendations, time() + RECOMMENDATION_CACHE_TIMEOUT
+        cache.set(cache_key, selection, RECOMMENDATION_CACHE_TIMEOUT)
+    recommendations, expires_at = selection
+    # A different worker can accept the version only if it obtains the same ordered selection.
+    fingerprint = sha256(json.dumps((cache_key, recommendations)).encode()).hexdigest()
+    genre_summary = f"{', '.join(labels[:-1])} y {labels[-1]}" if len(labels) > 1 else labels[0]
+    return recommendations, genre_summary, fingerprint, expires_at
+
+
+def _restart_recommendations(params):
+    params.pop('page', None)
+    params.pop(RECOMMENDATION_VERSION_PARAM, None)
+    return redirect(f"{reverse('explorar_catalogo')}?{params.urlencode()}")
 
 
 def explorar(request):
+    if request.GET:
+        return redirect(f"{reverse('explorar_catalogo')}?{request.GET.urlencode()}")
+
+    catalog_url = reverse('explorar_catalogo')
+    recommendations_url = f'{catalog_url}?coleccion=para-ti'
+    if not request.user.is_authenticated:
+        recommendations_url = redirect_to_login(recommendations_url).url
+    return render(request, 'explorar_descubrir.html', {
+        'catalog_url': catalog_url,
+        'recommendations_url': recommendations_url,
+        'quick_prices': EXPLORE_PRICE_CHOICES[:4],
+    })
+
+
+def explorar_catalogo(request):
+    catalog_params = request.GET.copy()
+    version = catalog_params.pop(RECOMMENDATION_VERSION_PARAM, [None])[-1]
+    personalized = request.GET.get('coleccion') == 'para-ti'
+    if personalized and not request.user.is_authenticated:
+        return redirect_to_login(request.get_full_path())
+    if personalized and request.user.is_staff:
+        catalog_params.pop('coleccion', None)
+        url = reverse('explorar_catalogo')
+        return redirect(f'{url}?{catalog_params.urlencode()}' if catalog_params else url)
+
+    page = request.GET.get('page')
+    try:
+        page_number = max(1, int(page))
+    except (TypeError, ValueError):
+        page_number = 1
+
     games = Game.objects.all()
+    recommendation_genres = ''
+    has_recommendations = False
+    if personalized:
+        signer = signing.Signer(salt='explore.recommendations')
+        if version is not None:
+            try:
+                requested_fingerprint, requested_expiry = signer.unsign_object(version)
+            except signing.BadSignature:
+                return _restart_recommendations(catalog_params)
+            if requested_expiry <= time():
+                return _restart_recommendations(catalog_params)
+        elif page_number > 1:
+            return _restart_recommendations(catalog_params)
+
+        library_revision = request.session.get(RECOMMENDATION_LIBRARY_REVISION, '')
+        recommendations, recommendation_genres, fingerprint, expires_at = _library_recommendations(
+            request.user, library_revision,
+        )
+        has_recommendations = bool(recommendations)
+        genre_values = [labels for _, labels in recommendations]
+        saved = LibraryEntry.objects.filter(user=request.user, game_id=OuterRef('pk'))
+        games = games.filter(pk__in=[pk for pk, _ in recommendations]).filter(~Exists(saved))
+    else:
+        catalog_params.pop('coleccion', None)
+        genre_values = Game.objects.order_by().values_list('genres', flat=True).distinct()
     genre = request.GET.get('genre', '')
     if genre.casefold() in Game.IGNORED_GENRES:
         # "Indie" no se ofrece como filtro; si llega por URL, se ignora.
@@ -91,41 +201,101 @@ def explorar(request):
         games = games.filter(Q(title__icontains=query) | Q(studio__icontains=query))
     if price == 'free':
         games = games.filter(price=0)
+    elif price == '5-15':
+        games = games.filter(price__range=(5, 15))
+    elif price == 'over-15':
+        games = games.filter(price__gt=15)
     elif price:
-        cap = Decimal(price)
-        games = games.filter(price__gt=0, price__lt=cap)
+        try:
+            cap = Decimal(price)
+        except InvalidOperation:
+            cap = None
+        if cap is None or not cap.is_finite() or cap <= 0:
+            price = ''
+        elif cap > Decimal('999.99'):
+            games = games.filter(price__gt=0)
+        else:
+            # Prices are stored in cents. Round up to preserve the strict upper bound.
+            cap = cap.quantize(Decimal('0.01'), rounding=ROUND_CEILING)
+            games = games.filter(price__gt=0, price__lt=cap)
 
     if sort == 'az':
-        games = games.order_by('title')
+        games = games.order_by('title', 'pk')
     elif sort == 'za':
-        games = games.order_by('-title')
+        games = games.order_by('-title', 'pk')
     elif sort == 'price_asc':
-        games = games.order_by('price')
+        games = games.order_by('price', 'pk')
     elif sort == 'price_desc':
-        games = games.order_by('-price')
+        games = games.order_by('-price', 'pk')
     elif sort == 'newest':
-        games = games.order_by('-year')
+        games = games.order_by('-year', 'pk')
+    elif sort == 'added':
+        games = games.order_by('-pk')
     else:
-        games = games.order_by('id')
+        sort = ''
+        games = games.order_by('-pk' if personalized else 'pk')
 
     genre_set = {
         genre.strip()
-        for value in Game.objects.values_list('genres', flat=True).distinct()
+        for value in genre_values
         for genre in value.split(',')
         if genre.strip() and genre.strip().casefold() not in Game.IGNORED_GENRES
     }
-    games = Paginator(games, 24).get_page(request.GET.get('page'))
+    genres = sorted(genre_set)
+    if personalized:
+        # The bounded ID list replaces a COUNT and also detects changes in filtered order.
+        ordered_ids = list(games.values_list('pk', flat=True))
+        fingerprint = sha256(json.dumps((fingerprint, ordered_ids)).encode()).hexdigest()
+        if version is None:
+            version = signer.sign_object((fingerprint, expires_at))
+        elif requested_fingerprint != fingerprint:
+            return _restart_recommendations(catalog_params)
 
-    if request.user.is_authenticated:
+        paginator = Paginator(ordered_ids, RECOMMENDATION_PAGE_SIZE)
+        page_obj = paginator.get_page(page_number)
+        page_games = games.in_bulk(page_obj.object_list)
+        page_obj.object_list = [page_games[pk] for pk in page_obj.object_list if pk in page_games]
+    else:
+        paginator = Paginator(games, 24)
+        page_obj = paginator.get_page(page_number)
+    page_range = [
+        None if number == paginator.ELLIPSIS else number
+        for number in paginator.get_elided_page_range(page_obj.number, on_each_side=1, on_ends=1)
+    ]
+    for name, value in {'q': query, 'genre': genre, 'sort': sort, 'price': price}.items():
+        if value:
+            catalog_params[name] = value
+        else:
+            catalog_params.pop(name, None)
+    catalog_params.pop('page', None)
+    pagination_params = catalog_params.copy()
+    if personalized:
+        pagination_params[RECOMMENDATION_VERSION_PARAM] = version
+
+    if not personalized and request.user.is_authenticated and not request.user.is_staff:
+        page_obj.object_list = list(page_obj.object_list)
+        visible_ids = [game.pk for game in page_obj.object_list]
         in_library = set(
-            LibraryEntry.objects.filter(user=request.user).values_list('game_id', flat=True)
+            LibraryEntry.objects.filter(user=request.user, game_id__in=visible_ids)
+            .values_list('game_id', flat=True)
         )
     else:
         in_library = set()
 
+    custom_price_label = f'Menos de ${price}' if price and price not in EXPLORE_PRICE_LABELS else ''
+
     return render(request, 'explorar.html', {
-        'games': games,
-        'genres': sorted(genre_set),
+        'games': page_obj,
+        'page_range': page_range,
+        'catalog_params': catalog_params,
+        'pagination_params': pagination_params,
+        'genres': genres,
+        'personalized': personalized,
+        'has_recommendations': has_recommendations,
+        'recommendation_genres': recommendation_genres,
+        'price_choices': EXPLORE_PRICE_CHOICES,
+        'price_label': EXPLORE_PRICE_LABELS.get(price, custom_price_label),
+        'custom_price_label': custom_price_label,
         'genre': genre,
         'q': query,
         'sort': sort,
@@ -197,11 +367,13 @@ def add_to_library(request, game_id):
         return redirect('panel_dashboard')
 
     game = get_object_or_404(Game, pk=game_id)
-    LibraryEntry.objects.get_or_create(
+    _, created = LibraryEntry.objects.get_or_create(
         user=request.user,
         game=game,
         defaults={'status': LibraryEntry.Status.WANT},
     )
+    if created:
+        request.session[RECOMMENDATION_LIBRARY_REVISION] = uuid4().hex
     return _back_redirect(request)
 
 
@@ -212,7 +384,9 @@ def remove_from_library(request, game_id):
         return redirect('panel_dashboard')
 
     game = get_object_or_404(Game, pk=game_id)
-    LibraryEntry.objects.filter(user=request.user, game=game).delete()
+    deleted, _ = LibraryEntry.objects.filter(user=request.user, game=game).delete()
+    if deleted:
+        request.session[RECOMMENDATION_LIBRARY_REVISION] = uuid4().hex
     return _back_redirect(request)
 
 

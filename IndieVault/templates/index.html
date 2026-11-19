@@ -2,92 +2,85 @@
 {% load static indievault_tags %}
 
 {% block content %}
-    <section class="hero{% if user.is_authenticated %} hero-welcome{% endif %}" aria-labelledby="hero-title">
-        {% if user.is_authenticated %}
-            {% with avatar=user|avatar_url %}
-                {% if avatar %}
-                    <img class="hero-logo hero-avatar" src="{{ avatar }}" alt="Foto de {{ user|display_name }}" width="512" height="512">
-                {% else %}
-                    <span class="hero-logo hero-avatar hero-avatar-fallback" aria-hidden="true">{{ user|initials }}</span>
+    <section class="hero home-hero" aria-labelledby="hero-title">
+        <img class="hero-logo" src="{% static 'img/logo-large.png' %}" alt="Logotipo de IndieVault" width="512" height="512">
+        <h1 id="hero-title">Los mundos pequeños,<br><span>las grandes historias</span></h1>
+        <p class="hero-copy">Descubre videojuegos independientes, organiza tu biblioteca y comparte tus experiencias con otros jugadores</p>
+        <a class="home-primary" href="{% url 'explorar_catalogo' %}">Explorar catálogo <span aria-hidden="true">↗</span></a>
+    </section>
+
+    {% if user.is_staff %}
+        <section class="home-progress home-admin" aria-labelledby="admin-title">
+            <span class="home-icon home-icon-panel" aria-hidden="true">▦</span>
+            <div class="home-admin-copy">
+                <h2 id="admin-title">Panel de control</h2>
+                <p>Revisa las métricas del catálogo y gestiona juegos, estudios y cuentas.</p>
+            </div>
+            <a class="home-admin-link" href="{% url 'panel_dashboard' %}">Abrir el panel <span aria-hidden="true">↗</span></a>
+        </section>
+    {% elif user.is_authenticated %}
+        <section class="home-progress" aria-labelledby="progress-title">
+            <div class="home-progress-header">
+                <h2 id="progress-title">Tu aventura continúa</h2>
+                {% if saved_count %}
+                    <a class="home-link" href="{% url 'biblioteca' %}">Ir a mi biblioteca <span aria-hidden="true">↗</span></a>
                 {% endif %}
-            {% endwith %}
-            <p class="eyebrow">Hola de nuevo, {{ user|display_name }}</p>
-            <h1 id="hero-title">Tu próximo mundo,<br><span>a tu manera.</span></h1>
-            {% if in_library %}
-                <p class="hero-copy">{{ in_library|length }} juego{{ in_library|length|pluralize }} en tu biblioteca. Esto es lo que encaja contigo hoy.</p>
+            </div>
+            <dl class="home-progress-counts">
+                <div><dt>Pendientes</dt><dd>{{ pending_count }}</dd></div>
+                <div class="home-count-playing"><dt>En curso</dt><dd>{{ playing_count }}</dd></div>
+                <div><dt>Terminados</dt><dd>{{ finished_count }}</dd></div>
+            </dl>
+            {% if playing_entries %}
+                <ul class="home-playing" aria-label="Juegos en curso">
+                    {% for entry in playing_entries %}
+                        {% with game=entry.game %}
+                            <li>
+                                <a href="{% url 'game_detail' game.slug %}">
+                                    <span class="home-cover" style="--tint: {{ game|cover_tint }}">
+                                        {% include 'partials/_cover_media.html' with game=game asset_size='header' %}
+                                    </span>
+                                    <span class="home-playing-info">
+                                        <span class="home-playing-status">En curso</span>
+                                        <span class="home-playing-title">{{ game.title }}</span>
+                                    </span>
+                                </a>
+                            </li>
+                        {% endwith %}
+                    {% endfor %}
+                </ul>
             {% else %}
-                <p class="hero-copy">Tu biblioteca está esperando su primer título. Explora el catálogo y guarda el que te llame la atención.</p>
+                <p class="home-progress-empty"><strong>¿A qué mundo quieres volver?</strong> Marca un juego como «En curso» en tu biblioteca y tendrás su ficha a mano cada vez que vuelvas al inicio.</p>
             {% endif %}
-        {% else %}
-            <img class="hero-logo" src="{% static 'img/logo-large.png' %}" alt="Logotipo de IndieVault" width="512" height="512">
-            <p class="eyebrow">Tu próxima aventura te espera</p>
-            <h1 id="hero-title">Los mundos pequeños,<br><span>las grandes historias.</span></h1>
-            <p class="hero-copy">Descubre propuestas independientes y guarda los juegos que quieres tener siempre cerca.</p>
-        {% endif %}
-    </section>
-
-    {% if for_you %}
-        <section class="featured" aria-labelledby="for-you-title">
-            <div class="featured-head">
-                <div>
-                    <p class="eyebrow">Según tu biblioteca</p>
-                    <h2 id="for-you-title">Elegidos para ti</h2>
-                    <p class="featured-note">Porque te gustan {{ favourite_genres|join:", " }}.</p>
-                </div>
-                <a class="back-link" href="{% url 'explorar' %}?genre={{ favourite_genres.0|urlencode }}">Más como estos ↗</a>
-            </div>
-            <div class="game-grid">
-                {% for game in for_you %}
-                    {% include 'partials/_game_card.html' with game=game cover_loading='eager' %}
-                {% endfor %}
-            </div>
         </section>
     {% endif %}
 
-    {% if featured %}
-        <section class="featured" aria-labelledby="featured-title">
-            <div class="featured-head">
-                <div>
-                    <p class="eyebrow">Recién añadidos</p>
-                    <h2 id="featured-title">Lo último del catálogo</h2>
-                </div>
-                <a class="back-link" href="{% url 'explorar' %}">Ver todo el catálogo ↗</a>
-            </div>
-            <div class="game-grid">
-                {% for game in featured %}
-                    {% include 'partials/_game_card.html' with game=game cover_loading='eager' %}
-                {% endfor %}
-            </div>
-        </section>
-    {% endif %}
-
-    <section aria-labelledby="choice-title">
-        <h2 class="choice-heading" id="choice-title">¿Por dónde quieres empezar?</h2>
-        <div class="choices">
-            <a class="choice-card" href="{% url 'explorar' %}">
-                <span class="card-kicker">01 / Descubrir</span>
-                <span class="card-icon" aria-hidden="true">⌕</span>
-                <h2>Explorar juegos</h2>
-                <p>Encuentra tu próximo favorito entre historias y mundos fuera de lo común.</p>
-                <span class="card-link">Ir a explorar <span aria-hidden="true">↗</span></span>
+    <nav class="home-actions{% if user.is_staff or saved_count %} home-actions-pair{% endif %}" aria-label="Qué puedes hacer en IndieVault">
+        <a class="home-action" href="{% url 'explorar_catalogo' %}">
+            <span class="home-icon home-icon-search" aria-hidden="true"></span>
+            <span class="home-action-copy">
+                <strong>Explorar el catálogo</strong>
+                <span>Busca por género y encuentra tu próximo juego favorito.</span>
+            </span>
+            <span class="home-action-arrow" aria-hidden="true">↗</span>
+        </a>
+        {% if not user.is_staff and not saved_count %}
+            <a class="home-action home-action-library" href="{% url 'biblioteca' %}">
+                <span class="home-icon home-icon-library" aria-hidden="true"></span>
+                <span class="home-action-copy">
+                    <strong>Mi biblioteca</strong>
+                    <span>Guarda juegos y lleva cuenta de lo que quieres jugar y lo que ya terminaste.</span>
+                </span>
+                <span class="home-action-arrow" aria-hidden="true">↗</span>
             </a>
-            {% if user.is_staff %}
-                <a class="choice-card admin" href="{% url 'panel_dashboard' %}">
-                    <span class="card-kicker">02 / Administrar</span>
-                    <span class="card-icon" aria-hidden="true">⚙</span>
-                    <h2>Panel de control</h2>
-                    <p>Revisa las métricas del catálogo y gestiona juegos, empresas y cuentas.</p>
-                    <span class="card-link">Abrir el panel <span aria-hidden="true">↗</span></span>
-                </a>
-            {% else %}
-                <a class="choice-card library" href="{% url 'biblioteca' %}">
-                    <span class="card-kicker">02 / Coleccionar</span>
-                    <span class="card-icon" aria-hidden="true">▤</span>
-                    <h2>Mi biblioteca</h2>
-                    <p>Un rincón propio para reunir los juegos que te gustan y los que quieres probar.</p>
-                    <span class="card-link">Ver mi biblioteca <span aria-hidden="true">↗</span></span>
-                </a>
-            {% endif %}
-        </div>
-    </section>
+        {% endif %}
+        <a class="home-action home-action-community" href="{% url 'community' %}">
+            <span class="home-icon home-icon-chat" aria-hidden="true"></span>
+            <span class="home-action-copy">
+                <strong>Comunidad</strong>
+                <span>Participa en conversaciones y comparte lo que te dejó cada juego.</span>
+            </span>
+            <span class="home-action-arrow" aria-hidden="true">↗</span>
+        </a>
+    </nav>
 {% endblock %}

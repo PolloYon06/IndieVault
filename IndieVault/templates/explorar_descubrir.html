@@ -1,0 +1,66 @@
+{% extends 'base.html' %}
+
+{% block title %}Descubrir juegos · IndieVault{% endblock %}
+{% block body_class %}explore-page{% endblock %}
+
+{% block content %}
+    <section class="page-head" aria-labelledby="page-title">
+        <h1 id="page-title">Explora nuevos <span>mundos</span></h1>
+        <p class="hero-copy">Descubre juegos independientes según tus gustos, las últimas incorporaciones o tu presupuesto.</p>
+    </section>
+
+    <nav class="explore-discovery" aria-label="Formas de descubrir juegos">
+        {% if not user.is_staff %}
+            <a class="explore-discovery-card" href="{{ recommendations_url }}">
+                <span class="explore-discovery-icon" aria-hidden="true">✦</span>
+                <div class="explore-discovery-copy">
+                    <h2>Elegidos para ti</h2>
+                    <p>{% if user.is_authenticated %}Descubre juegos inspirados en los géneros de tu biblioteca.{% else %}Inicia sesión para recibir recomendaciones según tu biblioteca.{% endif %}</p>
+                </div>
+                <span class="explore-discovery-arrow" aria-hidden="true">↗</span>
+            </a>
+        {% endif %}
+
+        <a class="explore-discovery-card explore-discovery-recent" href="{{ catalog_url }}?sort=added">
+            <span class="explore-discovery-icon" aria-hidden="true">◷</span>
+            <div class="explore-discovery-copy">
+                <h2>Recién añadidos</h2>
+                <p>Explora los últimos juegos incorporados a IndieVault.</p>
+            </div>
+            <span class="explore-discovery-arrow" aria-hidden="true">↗</span>
+        </a>
+
+        <a class="explore-discovery-card explore-discovery-free" href="{{ catalog_url }}?price=free">
+            <span class="explore-discovery-icon" aria-hidden="true">◇</span>
+            <div class="explore-discovery-copy">
+                <h2>Gratis para jugar</h2>
+                <p>Encuentra juegos gratuitos en el catálogo.</p>
+            </div>
+            <span class="explore-discovery-arrow" aria-hidden="true">↗</span>
+        </a>
+
+        <details class="explore-discovery-card explore-budget">
+            <summary>
+                <span class="explore-discovery-icon" aria-hidden="true">$</span>
+                <span class="explore-discovery-copy">
+                    <strong>Según tu presupuesto</strong>
+                    <span>Elige un rango de precio para explorar el catálogo.</span>
+                </span>
+            </summary>
+            <ul class="explore-shortcut-links">
+                {% for value, label in quick_prices %}
+                    <li><a class="chip" href="{{ catalog_url }}?price={{ value|urlencode }}">{{ label }}</a></li>
+                {% endfor %}
+            </ul>
+        </details>
+    </nav>
+
+    <section class="explore-catalog-feature" aria-labelledby="explore-catalog-feature-title">
+        <span class="explore-discovery-icon explore-catalog-icon" aria-hidden="true">▦</span>
+        <div class="explore-discovery-copy">
+            <h2 id="explore-catalog-feature-title">Catálogo completo</h2>
+            <p>Busca por título o estudio y filtra entre todos los videojuegos de IndieVault.</p>
+        </div>
+        <a class="button explore-catalog-cta" href="{{ catalog_url }}">Explorar todos los juegos <span aria-hidden="true">↗</span></a>
+    </section>
+{% endblock %}

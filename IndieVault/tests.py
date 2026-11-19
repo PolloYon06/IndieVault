@@ -4,13 +4,18 @@ import json
 import tempfile
 from io import BytesIO
 from pathlib import Path
+from time import time
+from unittest.mock import patch
 
 from django.contrib.auth import get_user_model
+from django.core.cache import cache
 from django.core.files.base import ContentFile
 from django.core.files.storage import default_storage
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.core.management import call_command
-from django.test import Client, TestCase, override_settings
+from django.db import connection
+from django.test import Client, SimpleTestCase, TestCase, override_settings
+from django.test.utils import CaptureQueriesContext
 from django.urls import reverse
 from PIL import Image as PILImage
 
@@ -39,9 +44,26 @@ class RouteTests(TestCase):
         self.assertTemplateUsed(response, 'index.html')
 
     def test_explorar(self):
-        response = self.client.get(reverse('explorar'))
+        with CaptureQueriesContext(connection) as queries:
+            response = self.client.get(reverse('explorar'))
         self.assertEqual(response.status_code, 200)
-        self.assertTemplateUsed(response, 'explorar.html')
+        self.assertTemplateUsed(response, 'explorar_descubrir.html')
+        self.assertContains(response, 'Explora nuevos <span>mundos</span>')
+        self.assertContains(response, 'Catálogo completo')
+        self.assertContains(response, f'href="{reverse("explorar_catalogo")}">Explorar todos los juegos')
+        for title in ('Elegidos para ti', 'Recién añadidos', 'Gratis para jugar', 'Según tu presupuesto'):
+            self.assertContains(response, title)
+        self.assertNotContains(response, 'class="game-grid"')
+        self.assertNotContains(response, 'class="filter-form"')
+        self.assertFalse(any(Game._meta.db_table in query['sql'] for query in queries))
+
+    def test_legacy_explore_links_redirect_preserving_query(self):
+        query = '?q=Cripta&genre=Puzle&sort=az&price=free&page=1'
+        response = self.client.get(reverse('explorar') + query)
+        self.assertRedirects(response, reverse('explorar_catalogo') + query)
+        catalog = self.client.get(response.url)
+        self.assertContains(catalog, 'Cripta de vidrio')
+        self.assertContains(catalog, 'class="active" aria-current="page">Explorar')
 
     def test_biblioteca(self):
         self.client.force_login(self.user)
@@ -116,7 +138,7 @@ class LibraryTests(TestCase):
         self.client.force_login(self.user)
 
     def test_catalog_shows_add_for_new_user(self):
-        html = self.client.get(reverse('explorar')).content.decode()
+        html = self.client.get(reverse('explorar_catalogo')).content.decode()
         self.assertIn('Añadir a biblioteca', html)
         self.assertNotIn('Quitar de la biblioteca', html)
 
@@ -125,7 +147,7 @@ class LibraryTests(TestCase):
         LibraryEntry.objects.create(
             user=self.user, game=game, status=LibraryEntry.Status.WANT
         )
-        html = self.client.get(reverse('explorar')).content.decode()
+        html = self.client.get(reverse('explorar_catalogo')).content.decode()
         self.assertIn('Quitar de la biblioteca', html)
 
     def test_remove_then_add_to_library(self):
@@ -269,7 +291,7 @@ class FilterTests(TestCase):
         self.client = Client()
 
     def page(self, **params):
-        return self.client.get(reverse('explorar'), params).content.decode()
+        return self.client.get(reverse('explorar_catalogo'), params).content.decode()
 
     def test_suscripcion(self):
         response = self.client.get(reverse('suscripcion'))
@@ -294,6 +316,12 @@ class FilterTests(TestCase):
         html = self.page(q='faro')
         self.assertIn('El último faro', html)
         self.assertNotIn('Sendero de luciérnagas', html)
+
+    def test_search_by_studio(self):
+        game = Game.objects.create(title='Otro título', studio='Estudio Nébula', price=5)
+        response = self.client.get(reverse('explorar_catalogo'), {'q': 'Nébula'})
+        self.assertEqual(list(response.context['games']), [game])
+        self.assertNotContains(response, 'aria-label="Paginación del catálogo"')
 
     def test_price_free(self):
         html = self.page(price='free')
@@ -325,6 +353,26 @@ class FilterTests(TestCase):
         self.assertIn('Jardín de invierno', html)
         self.assertNotIn('Aurora fija', html)
 
+    def test_explore_heading_reflects_catalogue_filters(self):
+        cases = (
+            ({'q': 'faro', 'sort': 'az'}, 'Encuentra tu próximo <span>mundo</span>'),
+            ({'genre': 'Puzle'}, 'Explora juegos de <span>Puzle</span>'),
+            ({'price': 'free'}, 'Descubre juegos <span>gratuitos</span>'),
+            ({'price': '10'}, 'Descubre juegos por <span>menos de $10</span>'),
+            ({'genre': 'Inexistente'}, 'Encuentra tu próximo <span>mundo</span>'),
+            ({'price': 'NaN'}, 'Encuentra tu próximo <span>mundo</span>'),
+        )
+        for params, heading in cases:
+            with self.subTest(params=params):
+                response = self.client.get(reverse('explorar_catalogo'), params)
+                self.assertContains(response, f'<h1 id="page-title">{heading}</h1>', html=True)
+                self.assertContains(response, 'Volver a descubrir')
+
+        response = self.client.get(reverse('explorar_catalogo'), {'genre': 'Puzle', 'price': 'free'})
+        self.assertContains(response, 'Explora juegos de <span>Puzle</span>')
+        self.assertContains(response, 'Encuentra juegos independientes gratis de la categoría Puzle.')
+        self.assertContains(response, f'href="{reverse("explorar_catalogo")}?price=free">Todos</a>')
+
     def test_no_results_empty_state(self):
         html = self.page(q='xyzabc')
         self.assertIn('No encontramos nada', html)
@@ -339,13 +387,364 @@ class FilterTests(TestCase):
                 genres='Indie',
             )
 
-        first_page = self.client.get(reverse('explorar'))
-        second_page = self.client.get(reverse('explorar'), {'page': 2})
+        first_page = self.client.get(reverse('explorar_catalogo'))
+        second_page = self.client.get(reverse('explorar_catalogo'), {'page': 2})
 
         self.assertEqual(len(first_page.context['games']), 24)
         self.assertEqual(len(second_page.context['games']), 1)
         self.assertContains(first_page, 'Página 1 de 2')
         self.assertContains(second_page, 'Página 2 de 2')
+        self.assertContains(first_page, 'disabled>Anterior')
+        self.assertContains(second_page, 'disabled>Siguiente')
+        self.assertContains(first_page, 'Volver a descubrir')
+        self.assertContains(second_page, 'Encuentra tu próximo <span>mundo</span>')
+        self.assertContains(second_page, 'Volver a descubrir')
+
+    def test_pagination_keeps_filters_and_genre_links_reset_page(self):
+        Game.objects.bulk_create([
+            Game(
+                title='Título de prueba',
+                slug=f'prueba-paginacion-{index}',
+                studio='Estudio',
+                genres='Puzle,Aventura',
+                price=5,
+            )
+            for index in range(241)
+        ])
+        params = {'q': 'Título de prueba', 'genre': 'Puzle', 'sort': 'price_asc', 'price': '10', 'page': 5}
+        response = self.client.get(reverse('explorar_catalogo'), params)
+        self.assertEqual(response.context['page_range'], [1, None, 4, 5, 6, None, 11])
+        self.assertContains(response, 'aria-current="page" aria-label="Página 5"')
+        self.assertContains(response, 'aria-label="Primera página"')
+        self.assertContains(response, 'aria-label="Última página"')
+        self.assertContains(
+            response,
+            '?q=T%C3%ADtulo+de+prueba&amp;genre=Puzle&amp;sort=price_asc&amp;price=10&amp;page=6#catalogo',
+        )
+        self.assertContains(
+            response,
+            '?q=T%C3%ADtulo+de+prueba&amp;genre=Aventura&amp;sort=price_asc&amp;price=10"',
+        )
+        self.assertContains(response, f'action="{reverse("explorar_catalogo")}"')
+        next_page = self.client.get(reverse('explorar_catalogo'), {**params, 'page': 6})
+        current_ids = {game.pk for game in response.context['games']}
+        next_ids = {game.pk for game in next_page.context['games']}
+        self.assertEqual(len(current_ids), 24)
+        self.assertEqual(len(next_ids), 24)
+        self.assertLess(max(current_ids), min(next_ids))
+        self.assertEqual(self.client.get(reverse('explorar_catalogo'), {**params, 'page': 999}).context['games'].number, 11)
+
+    def test_invalid_page_and_price_fall_back_to_defaults(self):
+        for page, price in [('texto', 'texto'), ('0', 'NaN'), ('-2', 'Infinity'), ('', '-5')]:
+            with self.subTest(page=page, price=price):
+                response = self.client.get(reverse('explorar_catalogo'), {'page': page, 'price': price})
+                self.assertEqual(response.context['games'].number, 1)
+                self.assertEqual(response.context['price'], '')
+                self.assertEqual(response.context['games'].paginator.count, Game.objects.count())
+
+    def test_numeric_price_caps_keep_strict_upper_bound(self):
+        Game.objects.create(title='Prueba de límite', studio='Estudio', price=5)
+        self.assertNotIn('Prueba de límite', self.page(price='5'))
+        self.assertIn('Prueba de límite', self.page(price='5.001'))
+        self.assertIn('Prueba de límite', self.page(price='1e1000000'))
+
+    def test_discovery_links_open_added_and_free_collections(self):
+        recent = [
+            Game.objects.create(title=f'Alta {i}', studio='Estudio', year=2000, price=0) for i in range(4)
+        ]
+        user = get_user_model().objects.create_user(username='discoverer')
+        LibraryEntry.objects.create(user=user, game=recent[-1], status=LibraryEntry.Status.DONE)
+        self.client.force_login(user)
+
+        catalog_url = reverse('explorar_catalogo')
+        landing = self.client.get(reverse('explorar'))
+        self.assertContains(landing, f'href="{catalog_url}?sort=added"')
+        self.assertContains(landing, f'href="{catalog_url}?price=free"')
+        added = self.client.get(catalog_url, {'sort': 'added'})
+        self.assertEqual(list(added.context['games'])[:4], recent[::-1])
+        self.assertContains(added, 'Las últimas <span>incorporaciones</span>')
+        self.assertContains(added, reverse('remove_from_library', args=[recent[-1].pk]))
+        self.assertContains(added, reverse('add_to_library', args=[recent[0].pk]))
+        self.assertContains(added, 'Volver a descubrir')
+        launched = self.client.get(catalog_url, {'sort': 'newest'})
+        self.assertNotIn(launched.context['games'][0], recent)
+        free = self.client.get(catalog_url, {'price': 'free'})
+        self.assertIn(recent[-1], free.context['games'])
+        self.assertTrue(all(game.is_free() for game in free.context['games']))
+
+    def test_discovery_budget_links_to_real_catalog_price_filters(self):
+        sample_games = [
+            Game.objects.create(title=f'Límite {index}', studio='Estudio', price=price, genres='Acción,Simulation')
+            for index, price in enumerate(('0', '4.99', '5', '10', '15', '15.01'))
+        ]
+        url = reverse('explorar_catalogo')
+        landing = self.client.get(reverse('explorar'))
+        self.assertNotContains(landing, '?genre=')
+
+        cases = (
+            ('free', sample_games[:1], 'gratuitos'),
+            ('5', sample_games[1:2], 'menos de $5'),
+            ('5-15', sample_games[2:5], 'entre $5 y $15'),
+            ('over-15', sample_games[5:], 'más de $15'),
+        )
+        for price, expected_games, heading in cases:
+            with self.subTest(price=price):
+                self.assertContains(landing, f'href="{url}?price={price}"')
+                results = self.client.get(url, {'price': price, 'q': 'Límite'})
+                self.assertEqual(list(results.context['games']), expected_games)
+                self.assertContains(results, f'<span>{heading}</span>')
+                self.assertNotContains(results, 'class="explore-discovery"')
+
+
+class RecommendationTests(TestCase):
+    def setUp(self):
+        cache.clear()
+        Game.objects.all().delete()
+        self.catalog_url = reverse('explorar_catalogo')
+        self.url = f'{self.catalog_url}?coleccion=para-ti'
+        self.member = get_user_model().objects.create_user(username='recomendaciones')
+
+    def game(self, title, genres, price=5):
+        return Game.objects.create(title=title, studio='Estudio de prueba', genres=genres, price=price)
+
+    def page_url(self, response, page):
+        params = response.context['pagination_params'].copy()
+        params['page'] = page
+        return f'{self.catalog_url}?{params.urlencode()}'
+
+    def test_recommendations_use_all_three_statuses_and_full_genre_labels(self):
+        matches = [
+            self.game('Coincide aventura', 'Aventura, Narrativa', price=0),
+            self.game('Coincide RPG', '  Puzle, rpg  , Narrativa'),
+            self.game('Coincide acción', 'Acción'),
+            self.game('Coincide alternativa', 'Acción, Indie'),
+        ]
+        self.game('Coincidencia parcial RPG', 'JRPG, RPG táctico')
+        self.game('Coincidencia parcial acción', 'Acción táctica')
+        self.game('Coincidencia parcial aventura', 'Aventura gráfica')
+        self.game('Género fuera de los tres primeros', 'Terror, Indie')
+        saved = [
+            self.game('Pendiente', 'Acción, acción, RPG, Terror, Terror, Terror, Indie'),
+            self.game('En curso', 'Acción, Aventura'),
+            self.game('Terminado', 'Acción, RPG'),
+        ]
+        for game, status in zip(saved, LibraryEntry.Status.values):
+            LibraryEntry.objects.create(user=self.member, game=game, status=status)
+        self.client.force_login(self.member)
+        response = self.client.get(self.url)
+
+        self.assertEqual(list(response.context['games']), matches[::-1])
+        self.assertContains(response, 'Aventuras <span>para ti</span>')
+        self.assertContains(response, 'Porque te gustan los juegos de Acción, RPG y Aventura.')
+        self.assertContains(response, reverse('add_to_library', args=[matches[0].pk]))
+        self.assertContains(response, reverse('game_detail', args=[matches[0].slug]))
+
+    def test_recommendations_handle_literal_punctuation_and_paginate_at_most_200(self):
+        saved = self.game('Guardado', 'C++')
+        LibraryEntry.objects.create(user=self.member, game=saved)
+        matches = Game.objects.bulk_create([
+            Game(title=f'Coincide {index}', slug=f'coincide-{index}', studio='Estudio', genres=' C++ ', price=0)
+            for index in range(208)
+        ])
+        self.game('No es la misma etiqueta', 'C+, C+++')
+        self.client.force_login(self.member)
+        with CaptureQueriesContext(connection) as queries:
+            response = self.client.get(self.url)
+        expected = matches[-200:][::-1]
+        self.assertEqual(list(response.context['games']), expected[:16])
+        self.assertEqual(response.context['games'].paginator.count, 200)
+        recommendation_queries = [query['sql'] for query in queries if 'REGEXP' in query['sql']]
+        self.assertEqual(len(recommendation_queries), 1)
+        self.assertIn('LIMIT 200', recommendation_queries[0])
+        second_url = self.page_url(response, 2)
+        query = second_url.split('?', 1)[1].replace('&', '&amp;')
+        self.assertContains(response, f'href="?{query}#catalogo" rel="next"')
+        self.assertContains(response, 'aria-current="page" aria-label="Página 1"')
+        self.assertContains(response, 'Porque te gustan los juegos de C++.')
+        with CaptureQueriesContext(connection) as subsequent_queries:
+            second = self.client.get(second_url)
+            last = self.client.get(self.page_url(second, 13))
+        self.assertEqual(list(second.context['games']), expected[16:32])
+        self.assertEqual(list(last.context['games']), expected[192:])
+        self.assertContains(second, 'aria-current="page" aria-label="Página 2"')
+        self.assertContains(last, 'disabled>Siguiente')
+        self.assertFalse(any('REGEXP' in query['sql'] for query in subsequent_queries))
+
+        filtered = self.client.get(f'{self.url}&q=Coincide+207&price=free')
+        self.assertEqual(list(filtered.context['games']), [matches[-1]])
+        self.assertContains(filtered, 'name="coleccion" value="para-ti"')
+
+    def test_saving_a_recommendation_refreshes_the_candidate_pool(self):
+        saved = self.game('Guardado', 'Acción')
+        LibraryEntry.objects.create(user=self.member, game=saved)
+        candidate = self.game('Candidato', 'Acción')
+        backup = self.game('Alternativa', 'Acción')
+        self.client.force_login(self.member)
+        self.assertEqual(list(self.client.get(self.url).context['games']), [backup, candidate])
+        self.client.post(reverse('add_to_library', args=[backup.pk]))
+        self.assertEqual(list(self.client.get(self.url).context['games']), [candidate])
+
+    def test_library_changes_restart_old_links_with_filters(self):
+        saved = self.game('Guardado', 'Acción')
+        LibraryEntry.objects.create(user=self.member, game=saved)
+        candidates = [self.game(f'Juego {index}', 'Acción', price=0) for index in range(21)]
+        self.client.force_login(self.member)
+        filtered_url = self.url + '&q=Juego&genre=Acci%C3%B3n&price=free&sort=added'
+        initial = self.client.get(filtered_url)
+        old_second_url = self.page_url(initial, 2)
+        top_game = candidates[-1]
+
+        self.client.post(reverse('add_to_library', args=[top_game.pk]))
+        updated = self.client.get(old_second_url, follow=True)
+        self.assertEqual(updated.redirect_chain, [(filtered_url, 302)])
+        self.assertEqual(updated.context['games'].number, 1)
+        self.assertNotIn(top_game, updated.context['games'])
+        new_second_url = self.page_url(updated, 2)
+        second = self.client.get(new_second_url)
+        self.assertEqual(second.context['games'].number, 2)
+        self.assertFalse(set(updated.context['games']) & set(second.context['games']))
+
+        self.client.post(reverse('remove_from_library', args=[top_game.pk]))
+        restored = self.client.get(new_second_url, follow=True)
+        self.assertEqual(restored.redirect_chain, [(filtered_url, 302)])
+        self.assertIn(top_game, restored.context['games'])
+        self.assertRedirects(self.client.get(old_second_url), filtered_url)
+
+    def test_changed_genres_restart_an_old_page(self):
+        saved = self.game('Guardado', 'Acción')
+        LibraryEntry.objects.create(user=self.member, game=saved)
+        for index in range(17):
+            self.game(f'Acción {index}', 'Acción')
+        candidate = self.game('Alternativa puzle', 'Puzle')
+        self.client.force_login(self.member)
+        old_second_url = self.page_url(self.client.get(self.url), 2)
+
+        saved.genres = 'Puzle'
+        saved.save(update_fields=['genres'])
+        updated = self.client.get(old_second_url, follow=True)
+        self.assertEqual(updated.redirect_chain, [(self.url, 302)])
+        self.assertEqual(updated.context['recommendation_genres'], 'Puzle')
+        self.assertEqual(list(updated.context['games']), [candidate])
+
+    def test_selection_version_survives_worker_cache_miss_only_if_the_selection_matches(self):
+        saved = self.game('Guardado', 'Acción')
+        LibraryEntry.objects.create(user=self.member, game=saved)
+        for index in range(20):
+            self.game(f'Juego {index}', 'Acción')
+        self.client.force_login(self.member)
+        first = self.client.get(self.url)
+        old_second_url = self.page_url(first, 2)
+
+        cache.clear()
+        second = self.client.get(old_second_url)
+        self.assertEqual(second.context['games'].number, 2)
+        self.assertEqual(self.page_url(second, 2), old_second_url)
+        self.assertFalse(set(first.context['games']) & set(second.context['games']))
+
+        self.game('Juego recién añadido', 'Acción')
+        cache.clear()
+        self.assertRedirects(self.client.get(old_second_url), self.url)
+
+    def test_live_price_changes_restart_an_old_sorted_page_without_recomputing_candidates(self):
+        saved = self.game('Guardado', 'Acción')
+        LibraryEntry.objects.create(user=self.member, game=saved)
+        candidates = [self.game(f'Juego {index}', 'Acción') for index in range(20)]
+        self.client.force_login(self.member)
+        sorted_url = self.url + '&sort=price_asc'
+        old_second_url = self.page_url(self.client.get(sorted_url), 2)
+        Game.objects.filter(pk=candidates[-1].pk).update(price=0)
+
+        with CaptureQueriesContext(connection) as queries:
+            updated = self.client.get(old_second_url, follow=True)
+        self.assertEqual(updated.redirect_chain, [(sorted_url, 302)])
+        self.assertEqual(updated.context['games'][0], candidates[-1])
+        self.assertFalse(any('REGEXP' in query['sql'] for query in queries))
+
+    def test_expired_selection_and_unversioned_page_return_to_first_page(self):
+        saved = self.game('Guardado', 'Acción')
+        LibraryEntry.objects.create(user=self.member, game=saved)
+        for index in range(20):
+            self.game(f'Juego {index}', 'Acción')
+        self.client.force_login(self.member)
+        first = self.client.get(self.url)
+        old_second_url = self.page_url(first, 2)
+        self.assertRedirects(self.client.get(f'{self.url}&page=2'), self.url)
+        tampered = first.context['pagination_params'].copy()
+        tampered['version_recomendaciones'] += 'x'
+        tampered['page'] = 2
+        self.assertRedirects(self.client.get(self.catalog_url, tampered), self.url)
+
+        with patch('IndieVault.views.time', return_value=time() + 121):
+            with CaptureQueriesContext(connection) as queries:
+                refreshed = self.client.get(old_second_url, follow=True)
+            self.assertEqual(refreshed.redirect_chain, [(self.url, 302)])
+            self.assertEqual(refreshed.context['games'].number, 1)
+            self.assertNotEqual(self.page_url(refreshed, 2), old_second_url)
+            self.assertEqual(sum('REGEXP' in query['sql'] for query in queries), 1)
+
+    def test_versions_are_bound_to_each_user_even_with_identical_candidates(self):
+        other_user = get_user_model().objects.create_user(username='otra-cuenta')
+        saved = self.game('Guardado', 'Acción')
+        for user in (self.member, other_user):
+            LibraryEntry.objects.create(user=user, game=saved)
+        for index in range(20):
+            self.game(f'Juego {index}', 'Acción')
+        self.client.force_login(self.member)
+        first = self.client.get(self.url)
+        member_second_url = self.page_url(first, 2)
+        other = Client()
+        other.force_login(other_user)
+        other_first = other.get(member_second_url, follow=True)
+        self.assertEqual(other_first.redirect_chain, [(self.url, 302)])
+        self.assertEqual(list(other_first.context['games']), list(first.context['games']))
+        self.assertNotEqual(self.page_url(other_first, 2), member_second_url)
+        self.assertEqual(self.client.get(member_second_url).context['games'].number, 2)
+
+    def test_member_without_usable_recommendations_gets_a_compact_invitation(self):
+        self.client.force_login(self.member)
+        self.assertContains(self.client.get(self.url), 'Guarda juegos del catálogo')
+        for title, genres in [('Género ignorado', 'Indie,  '), ('Sin candidatos', 'Puzle')]:
+            game = self.game(title, genres)
+            LibraryEntry.objects.create(user=self.member, game=game)
+            response = self.client.get(self.url)
+            self.assertContains(response, 'Guarda juegos del catálogo')
+            self.assertNotContains(response, 'class="game-card"')
+            self.assertContains(response, 'Ver catálogo completo')
+
+    def test_guest_and_staff_skip_library_queries(self):
+        staff = get_user_model().objects.create_user(username='equipo', is_staff=True)
+        game = self.game('Juego guardado por un administrador', 'Acción')
+        LibraryEntry.objects.create(user=staff, game=game)
+        with CaptureQueriesContext(connection) as guest_queries:
+            landing = self.client.get(reverse('explorar'))
+            guest = self.client.get(self.url)
+        self.assertContains(landing, 'Inicia sesión para recibir recomendaciones')
+        self.assertContains(landing, guest.url)
+        self.assertEqual(guest.status_code, 302)
+        self.assertTrue(guest.url.startswith(reverse('login')))
+
+        self.client.force_login(staff)
+        with CaptureQueriesContext(connection) as staff_queries:
+            landing = self.client.get(reverse('explorar'))
+            redirect = self.client.get(self.url)
+            admin = self.client.get(self.catalog_url)
+        self.assertNotContains(landing, 'Elegidos para ti')
+        self.assertRedirects(redirect, self.catalog_url)
+        self.assertContains(admin, reverse('panel_game_edit', args=[game.pk]))
+        for queries in (guest_queries, staff_queries):
+            self.assertFalse(any(LibraryEntry._meta.db_table in query['sql'] for query in queries))
+
+    def test_filtered_catalog_skips_personalized_discovery(self):
+        saved = self.game('Guardado', 'Acción')
+        LibraryEntry.objects.create(user=self.member, game=saved)
+        candidate = self.game('Candidato', 'Acción')
+        self.client.force_login(self.member)
+        with CaptureQueriesContext(connection) as queries:
+            response = self.client.get(self.catalog_url, {'genre': 'Acción'})
+        self.assertEqual(list(response.context['games']), [saved, candidate])
+        self.assertContains(response, 'Volver a descubrir')
+        self.assertNotContains(response, 'Aventuras <span>para ti</span>')
+        self.assertEqual(sum(LibraryEntry._meta.db_table in query['sql'] for query in queries), 1)
 
 
 class SteamImportTests(TestCase):
@@ -614,7 +1013,7 @@ class EnterprisePortalTests(TestCase):
             'symbol': '✦',
             'tint': '',
         })
-        response = self.client.get(reverse('explorar'))
+        response = self.client.get(reverse('explorar_catalogo'))
         self.assertContains(response, 'Juego Visible')
 
     def test_publish_requires_enterprise_account(self):
@@ -1211,6 +1610,92 @@ class AtypicalStatsTests(TestCase):
         self.assertContains(response, 'chart-specs')
 
 
+class HomeProgressTests(SimpleTestCase):
+    def test_guest_home_links_to_catalog_without_querying_it(self):
+        response = self.client.get(reverse('index'))
+        self.assertContains(response, 'Los mundos pequeños,')
+        self.assertContains(
+            response,
+            'Descubre videojuegos independientes, organiza tu biblioteca y '
+            'comparte tus experiencias con otros jugadores',
+        )
+        self.assertContains(response, reverse('explorar'))
+        self.assertContains(response, reverse('biblioteca'))
+        self.assertContains(response, reverse('community'))
+        self.assertContains(response, 'home-action-library')
+        self.assertNotContains(response, 'home-actions-pair')
+        self.assertNotContains(response, 'Tu aventura continúa')
+        self.assertNotContains(response, 'Lo último del catálogo')
+
+    def test_staff_home_prioritizes_panel_without_querying_library(self):
+        staff = get_user_model()(username='admin', is_staff=True)
+        with patch('django.contrib.auth.middleware.get_user', return_value=staff):
+            response = self.client.get(reverse('index'))
+
+        self.assertContains(response, 'Panel de control')
+        self.assertContains(response, reverse('panel_dashboard'))
+        self.assertContains(response, 'Abrir el panel')
+        self.assertContains(response, 'home-actions-pair')
+        self.assertNotContains(response, 'Tu aventura continúa')
+        self.assertNotContains(response, 'Mi biblioteca')
+
+    @patch('IndieVault.views.LibraryEntry.objects.filter')
+    def test_home_displays_playing_games_and_summary(self, filter_entries):
+        user = get_user_model()(username='jugadora')
+        entries = filter_entries.return_value
+        entries.aggregate.return_value = {
+            'saved_count': 11, 'pending_count': 2, 'playing_count': 5, 'finished_count': 4,
+        }
+        playing = entries.filter.return_value.select_related.return_value.order_by.return_value
+        game = Game(title='Cripta de vidrio', slug='cripta-de-vidrio', steam_app_id=123)
+        playing.__getitem__.return_value = [LibraryEntry(game=game)]
+
+        with patch('django.contrib.auth.middleware.get_user', return_value=user):
+            response = self.client.get(reverse('index'))
+
+        filter_entries.assert_called_once_with(user=response.wsgi_request.user)
+        entries.filter.assert_called_once_with(status=LibraryEntry.Status.PLAYING)
+        playing.__getitem__.assert_called_once_with(slice(None, 3))
+        self.assertContains(response, 'Tu aventura continúa')
+        self.assertContains(response, 'Ir a mi biblioteca')
+        self.assertContains(response, 'home-actions-pair')
+        self.assertNotContains(response, 'home-action-library')
+        self.assertContains(response, 'Cripta de vidrio')
+        self.assertContains(response, reverse('game_detail', args=[game.slug]))
+        self.assertContains(response, 'header.jpg')
+        self.assertContains(response, '<dt>Pendientes</dt><dd>2</dd>', html=True)
+        self.assertContains(response, '<dt>En curso</dt><dd>5</dd>', html=True)
+        self.assertContains(response, '<span class="home-playing-status">En curso</span>', html=True)
+        self.assertContains(response, '<dt>Terminados</dt><dd>4</dd>', html=True)
+
+    @patch('IndieVault.views.LibraryEntry.objects.filter')
+    def test_empty_progress_invites_player_to_use_library(self, filter_entries):
+        user = get_user_model()(username='jugadora')
+        entries = filter_entries.return_value
+        playing = entries.filter.return_value.select_related.return_value.order_by.return_value
+        playing.__getitem__.return_value = []
+
+        for pending_count in (0, 1):
+            with self.subTest(pending_count=pending_count):
+                entries.aggregate.return_value = {
+                    'saved_count': pending_count, 'pending_count': pending_count,
+                    'playing_count': 0, 'finished_count': 0,
+                }
+                with patch('django.contrib.auth.middleware.get_user', return_value=user):
+                    response = self.client.get(reverse('index'))
+
+                self.assertContains(response, 'Marca un juego como «En curso»')
+                self.assertNotContains(response, 'aria-label="Juegos en curso"')
+                if pending_count:
+                    self.assertContains(response, 'Ir a mi biblioteca')
+                    self.assertContains(response, 'home-actions-pair')
+                    self.assertNotContains(response, 'home-action-library')
+                else:
+                    self.assertNotContains(response, 'Ir a mi biblioteca')
+                    self.assertNotContains(response, 'home-actions-pair')
+                    self.assertContains(response, 'home-action-library')
+
+
 class PersonalizationTests(TestCase):
     def setUp(self):
         self.user = get_user_model().objects.create_user(
@@ -1221,32 +1706,10 @@ class PersonalizationTests(TestCase):
             user=self.user, game=Game.objects.get(title='Cripta de vidrio')
         )
 
-    def test_index_suggests_games_from_library_genres(self):
-        response = self.client.get(reverse('index'))
-        html = response.content.decode()
-        self.assertContains(response, 'Elegidos para ti')
-        self.assertContains(response, 'Porque te gustan Puzle')
-        self.assertIn('Taller de engranajes', html)
-        self.assertNotIn('Cripta de vidrio', html)
-
-    def test_index_without_library_has_no_suggestions(self):
-        other = get_user_model().objects.create_user(
-            username='sin-biblioteca', password='clave-sin-123'
-        )
-        self.client.force_login(other)
-        response = self.client.get(reverse('index'))
-        self.assertNotContains(response, 'Elegidos para ti')
-        self.assertContains(response, 'Tu biblioteca está esperando su primer título')
-
-    def test_guest_index_has_no_suggestions(self):
-        self.client.logout()
-        response = self.client.get(reverse('index'))
-        self.assertNotContains(response, 'Elegidos para ti')
-
     def test_indie_is_hidden_from_filters_and_urls(self):
-        self.assertNotContains(self.client.get(reverse('explorar')), 'genre=Indie')
+        self.assertNotContains(self.client.get(reverse('explorar_catalogo')), 'genre=Indie')
         html = self.client.get(
-            reverse('explorar'), {'genre': 'indie'}
+            reverse('explorar_catalogo'), {'genre': 'indie'}
         ).content.decode()
         self.assertIn('Sendero de luciérnagas', html)
 
