@@ -2263,3 +2263,137 @@ class SecurityTests(TestCase):
         self.assertRedirects(response, reverse('index'))
         self.assertEqual(first.get(reverse('perfil')).status_code, 302)
         self.assertEqual(second.get(reverse('perfil')).status_code, 302)
+
+
+class RoleDashboardsTests(TestCase):
+    def setUp(self):
+        User = get_user_model()
+        self.staff = User.objects.create_user(
+            username='admin-dash', password='clave-admin-123', is_staff=True
+        )
+        self.player = User.objects.create_user(
+            username='jugador-dash', password='clave-jugador-123'
+        )
+        self.studio_user = User.objects.create_user(
+            username='estudio-dash', password='clave-estudio-123'
+        )
+        self.enterprise = Enterprise.objects.create(
+            user=self.studio_user,
+            studio_name='Aurora Indie',
+            website='https://aurora.example.com',
+            is_verified=False,
+        )
+        self.other_user = User.objects.create_user(
+            username='otro-estudio-dash', password='clave-estudio-123'
+        )
+        self.other_enterprise = Enterprise.objects.create(
+            user=self.other_user,
+            studio_name='Norte Digital',
+            is_verified=True,
+        )
+        self.game = Game.objects.create(
+            title='Ecos del Sur',
+            studio='Aurora Indie',
+            description='Aventura narrativa.',
+            genres='Aventura, Narrativo',
+            year=2026,
+            price='5.99',
+            publisher=self.enterprise,
+        )
+        self.other_game = Game.objects.create(
+            title='Horizonte Cero',
+            studio='Norte Digital',
+            description='',
+            genres='',
+            year=2026,
+            price=0,
+            publisher=self.other_enterprise,
+        )
+        self.playing_entry = LibraryEntry.objects.create(
+            user=self.player,
+            game=self.game,
+            status=LibraryEntry.Status.PLAYING,
+        )
+        self.discussion = Discussion.objects.create(
+            game=self.game,
+            author=self.player,
+            title='Duda con el capítulo final',
+            body='¿Cómo se desbloquea el epílogo?',
+            category=Discussion.Category.HELP,
+        )
+        DiscussionReply.objects.create(
+            discussion=self.discussion,
+            author=self.studio_user,
+            body='Conseguí las tres llaves ocultas.',
+        )
+
+    def test_enterprise_dashboard_shows_kpis_verification_and_community(self):
+        self.client.force_login(self.studio_user)
+        response = self.client.get(reverse('enterprise_dashboard'))
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'Verificación en revisión')
+        self.assertContains(response, 'En bibliotecas')
+        self.assertContains(response, '1 en biblioteca · 1 en curso · 0 terminados')
+        self.assertContains(response, 'Duda con el capítulo final')
+        self.assertContains(response, reverse('enterprise_game_edit', args=[self.game.id]))
+
+        self.enterprise.is_verified = True
+        self.enterprise.save(update_fields=['is_verified'])
+        response = self.client.get(reverse('enterprise_dashboard'))
+        self.assertContains(response, 'Estudio verificado')
+
+    def test_enterprise_can_edit_own_game_and_not_others(self):
+        self.client.force_login(self.studio_user)
+        edit_url = reverse('enterprise_game_edit', args=[self.game.id])
+        response = self.client.get(edit_url)
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'Guardar cambios')
+
+        response = self.client.post(edit_url, {
+            'title': 'Ecos del Sur: Edición Definitiva',
+            'description': 'Aventura narrativa expandida.',
+            'genres': 'Aventura, Puzle',
+            'year': 2026,
+            'price': '7.99',
+            'symbol': '◈',
+            'tint': '',
+        })
+        self.assertRedirects(response, reverse('enterprise_dashboard'))
+        self.game.refresh_from_db()
+        self.assertEqual(self.game.title, 'Ecos del Sur: Edición Definitiva')
+        self.assertEqual(self.game.publisher, self.enterprise)
+        self.assertEqual(self.game.studio, 'Aurora Indie')
+
+        forbidden_url = reverse('enterprise_game_edit', args=[self.other_game.id])
+        self.assertEqual(self.client.get(forbidden_url).status_code, 404)
+
+    def test_player_dashboard_shows_kpis_quick_resume_and_community(self):
+        self.client.force_login(self.player)
+        response = self.client.get(reverse('estadisticas'))
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'Continuar jugando')
+        self.assertContains(response, 'Ecos del Sur')
+        self.assertContains(response, 'Marcar terminado')
+        self.assertContains(response, 'Tu actividad en comunidad')
+        self.assertContains(response, 'Duda con el capítulo final')
+        self.assertContains(
+            response,
+            reverse('update_library_status', args=[self.playing_entry.id]),
+        )
+
+    def test_admin_dashboard_supports_time_ranges_and_catalog_health(self):
+        self.client.force_login(self.staff)
+        response = self.client.get(reverse('panel_dashboard'), {'range': '7d'})
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.context['range_key'], '7d')
+        self.assertContains(response, 'Salud del catálogo:')
+        self.assertContains(response, 'Últimos temas')
+        self.assertContains(response, 'Duda con el capítulo final')
+
+        response_all = self.client.get(reverse('panel_dashboard'), {'range': 'all'})
+        self.assertEqual(response_all.status_code, 200)
+        self.assertEqual(response_all.context['range_key'], 'all')
+        self.assertContains(response_all, 'respuestas totales')
+
+        response_invalid = self.client.get(reverse('panel_dashboard'), {'range': 'invalid'})
+        self.assertEqual(response_invalid.context['range_key'], '30d')

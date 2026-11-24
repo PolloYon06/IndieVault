@@ -15,7 +15,7 @@ from django.utils.http import url_has_allowed_host_and_scheme
 from django.views.decorators.http import require_POST
 
 from .forms import AdminAccountCreateForm, AdminEnterpriseForm, AdminGameForm
-from .models import Enterprise, Game, LibraryEntry
+from .models import Discussion, DiscussionReply, Enterprise, Game, LibraryEntry
 from .stats import admin_stats, dashboard_charts
 
 
@@ -161,18 +161,50 @@ def _filtered_library(request):
 @staff_required
 def panel_dashboard(request):
     User = get_user_model()
-    month_start = timezone.localdate().replace(day=1)
+    range_options = [
+        ('7d', '7 días', 7),
+        ('30d', '30 días', 30),
+        ('all', 'Todo', None),
+    ]
+    valid_ranges = {key: (label, days) for key, label, days in range_options}
+    range_key = request.GET.get('range', '30d')
+    if range_key not in valid_ranges:
+        range_key = '30d'
+    range_label, range_days = valid_ranges[range_key]
+    since_dt = (
+        timezone.now() - timezone.timedelta(days=range_days)
+        if range_days is not None
+        else None
+    )
 
     total_games = Game.objects.count()
     free_games = Game.objects.filter(price=0).count()
+    incomplete_games_count = Game.objects.filter(
+        Q(description='') | Q(genres='')
+    ).count()
     total_users = User.objects.count()
-    new_users = User.objects.filter(date_joined__date__gte=month_start).count()
+    new_users = (
+        User.objects.filter(date_joined__gte=since_dt).count()
+        if since_dt
+        else total_users
+    )
     total_enterprises = Enterprise.objects.count()
     pending_count = Enterprise.objects.filter(is_verified=False).count()
     total_entries = LibraryEntry.objects.count()
     done_entries = LibraryEntry.objects.filter(
         status=LibraryEntry.Status.DONE
     ).count()
+    total_discussions = Discussion.objects.count()
+    period_discussions = (
+        Discussion.objects.filter(created_at__gte=since_dt).count()
+        if since_dt
+        else total_discussions
+    )
+    period_replies = (
+        DiscussionReply.objects.filter(created_at__gte=since_dt).count()
+        if since_dt
+        else DiscussionReply.objects.count()
+    )
 
     kpis = [
         {
@@ -184,7 +216,11 @@ def panel_dashboard(request):
         {
             'label': 'Usuarios',
             'value': total_users,
-            'note': f'{new_users} nuevos este mes',
+            'note': (
+                f'+{new_users} en {range_label.lower()}'
+                if since_dt
+                else f'{total_users} registrados'
+            ),
             'href': reverse('panel_users'),
         },
         {
@@ -199,6 +235,16 @@ def panel_dashboard(request):
             'note': f'{done_entries} terminados',
             'href': reverse('panel_stats'),
         },
+        {
+            'label': 'Comunidad',
+            'value': total_discussions,
+            'note': (
+                f'+{period_discussions} temas · +{period_replies} resp. ({range_label.lower()})'
+                if since_dt
+                else f'{period_replies} respuestas totales'
+            ),
+            'href': reverse('community'),
+        },
     ]
 
     return render(request, 'panel/dashboard.html', {
@@ -206,10 +252,22 @@ def panel_dashboard(request):
         'panel_title': 'Panel de control',
         'panel_note': 'Gestiona el catálogo, las cuentas y la actividad de IndieVault.',
         'kpis': kpis,
+        'range_key': range_key,
+        'range_label': range_label,
+        'range_options': [
+            {'key': key, 'label': label, 'active': key == range_key}
+            for key, label, _ in range_options
+        ],
+        'incomplete_games_count': incomplete_games_count,
         'dashboard_charts': dashboard_charts(),
         'pending_count': pending_count,
         'recent_games': Game.objects.select_related('publisher').order_by('-id')[:6],
         'recent_users': User.objects.order_by('-date_joined')[:6],
+        'recent_discussions': (
+            Discussion.objects.select_related('author', 'game')
+            .annotate(reply_count=Count('replies'))
+            .order_by('-created_at')[:5]
+        ),
         'pending_enterprises': (
             Enterprise.objects.filter(is_verified=False)
             .select_related('user')

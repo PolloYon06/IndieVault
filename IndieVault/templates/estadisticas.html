@@ -12,7 +12,83 @@
 </section>
 
 <section class="page-shell">
-    <div class="stats-grid">
+    <div class="panel-actions">
+        <a class="button" href="{% url 'explorar' %}">Explorar catálogo</a>
+        <a class="button ghost" href="{% url 'biblioteca' %}">Mi biblioteca</a>
+        <a class="button ghost" href="{% url 'community' %}">Comunidad</a>
+        <a class="button ghost" href="{% url 'perfil' %}">Mi perfil</a>
+    </div>
+
+    {% if kpis %}
+        <div class="kpi-grid" aria-label="Resumen personal">
+            {% for kpi in kpis %}
+                <a class="kpi-card" href="{{ kpi.href }}">
+                    <span class="kpi-label">{{ kpi.label }}</span>
+                    <strong class="kpi-value">{{ kpi.value }}</strong>
+                    <span class="kpi-note">{{ kpi.note }}</span>
+                </a>
+            {% endfor %}
+        </div>
+    {% endif %}
+
+    <div class="panel-split">
+        <section class="panel-card" aria-labelledby="playing-now-title">
+            <header class="panel-card-head">
+                <div>
+                    <p class="panel-kicker">Partidas activas</p>
+                    <h2 id="playing-now-title">Continuar jugando</h2>
+                </div>
+                <a class="panel-link" href="{% url 'biblioteca' %}">Abrir biblioteca ↗</a>
+            </header>
+
+            <ul class="panel-list">
+                {% for entry in playing_entries %}
+                    <li class="panel-row">
+                        <div class="panel-row-main">
+                            <a class="panel-row-title" href="{% url 'game_detail' entry.game.slug %}">{{ entry.game.title }}</a>
+                            <span class="panel-row-meta">{{ entry.game.studio }}{% if entry.game.year %} · {{ entry.game.year }}{% endif %}</span>
+                        </div>
+                        <form class="inline-form" method="post" action="{% url 'update_library_status' entry.id %}">
+                            {% csrf_token %}
+                            <input type="hidden" name="status" value="Terminado">
+                            <button class="button ghost small" type="submit">Marcar terminado</button>
+                        </form>
+                    </li>
+                {% empty %}
+                    <li class="panel-empty">No tienes juegos marcados como «En curso» en este momento.</li>
+                {% endfor %}
+            </ul>
+        </section>
+
+        <section class="panel-card" aria-labelledby="player-community-title">
+            <header class="panel-card-head">
+                <div>
+                    <p class="panel-kicker">Conversaciones</p>
+                    <h2 id="player-community-title">Tu actividad en comunidad</h2>
+                </div>
+                <a class="panel-link" href="{% url 'community' %}">Ver foro ↗</a>
+            </header>
+
+            <ul class="panel-list">
+                {% for thread in recent_threads %}
+                    <li class="panel-row">
+                        <div class="panel-row-main">
+                            <a class="panel-row-title" href="{% url 'discussion_detail' thread.id %}">{{ thread.title }}</a>
+                            <span class="panel-row-meta">
+                                {% if thread.game %}{{ thread.game.title }}{% else %}Comunidad general{% endif %}
+                                · {{ thread.reply_count }} respuesta{{ thread.reply_count|pluralize }}
+                            </span>
+                        </div>
+                        <a class="panel-mini-link" href="{% url 'discussion_detail' thread.id %}">Abrir</a>
+                    </li>
+                {% empty %}
+                    <li class="panel-empty">Aún no has participado en temas de la comunidad.</li>
+                {% endfor %}
+            </ul>
+        </section>
+    </div>
+
+    <div class="stats-grid dashboard-section">
         {% for chart in charts %}
             <article class="stat-card">
                 <header class="stat-head">

@@ -2,14 +2,33 @@
 {% load static indievault_tags %}
 
 {% block panel_content %}
-<div class="panel-actions">
-    <a class="button" href="{% url 'panel_game_create' %}">+ Nuevo juego</a>
-    <a class="button ghost" href="{% url 'panel_enterprises' %}{% if pending_count %}?verified=no{% endif %}">
-        Empresas por verificar{% if pending_count %} ({{ pending_count }}){% endif %}
-    </a>
-    <a class="button ghost" href="{% url 'panel_stats' %}">Ver estadísticas</a>
-    <a class="button ghost" href="{% url 'panel_games_export' %}">Exportar catálogo</a>
+<div class="dashboard-toolbar">
+    <div class="panel-actions">
+        <a class="button" href="{% url 'panel_game_create' %}">+ Nuevo juego</a>
+        <a class="button ghost" href="{% url 'panel_enterprises' %}{% if pending_count %}?verified=no{% endif %}">
+            Empresas por verificar{% if pending_count %} ({{ pending_count }}){% endif %}
+        </a>
+        <a class="button ghost" href="{% url 'panel_stats' %}">Ver estadísticas</a>
+        <a class="button ghost" href="{% url 'panel_games_export' %}">Exportar catálogo</a>
+    </div>
+
+    {% if range_options %}
+        <div class="range-pills" role="group" aria-label="Rango temporal de métricas">
+            {% for opt in range_options %}
+                <a class="range-pill{% if opt.active %} active{% endif %}" href="{% url 'panel_dashboard' %}?range={{ opt.key }}"{% if opt.active %} aria-current="true"{% endif %}>{{ opt.label }}</a>
+            {% endfor %}
+        </div>
+    {% endif %}
 </div>
+
+{% if incomplete_games_count %}
+    <div class="dashboard-alert" role="status">
+        <p class="dashboard-alert-text">
+            <strong>Salud del catálogo:</strong> {{ incomplete_games_count }} juego{{ incomplete_games_count|pluralize }} sin descripción o sin géneros asignados.
+        </p>
+        <a class="panel-link" href="{% url 'panel_games' %}">Revisar catálogo ↗</a>
+    </div>
+{% endif %}
 
 <div class="kpi-grid">
     {% for kpi in kpis %}
@@ -112,6 +131,30 @@
                 </div>
             {% empty %}
                 <p class="panel-empty">Aún no hay cuentas registradas.</p>
+            {% endfor %}
+        </section>
+
+        <section class="panel-card" aria-labelledby="recent-community-title">
+            <header class="panel-card-head">
+                <div>
+                    <p class="panel-kicker">Comunidad</p>
+                    <h2 id="recent-community-title">Últimos temas</h2>
+                </div>
+                <a class="panel-link" href="{% url 'community' %}">Ver foro ↗</a>
+            </header>
+
+            {% for thread in recent_discussions %}
+                <div class="panel-row">
+                    <div class="panel-row-main">
+                        <a class="panel-row-title" href="{% url 'discussion_detail' thread.id %}">{{ thread.title }}</a>
+                        <span class="panel-row-meta">
+                            {{ thread.author.username }} · {% if thread.game %}{{ thread.game.title }}{% else %}General{% endif %} · {{ thread.reply_count }} resp.
+                        </span>
+                    </div>
+                    <a class="panel-mini-link" href="{% url 'discussion_detail' thread.id %}">Moderar</a>
+                </div>
+            {% empty %}
+                <p class="panel-empty">Aún no hay temas en la comunidad.</p>
             {% endfor %}
         </section>
     </div>

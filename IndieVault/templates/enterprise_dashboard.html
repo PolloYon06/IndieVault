@@ -9,15 +9,35 @@
         <p class="hero-copy">Publica y gestiona los juegos de tu estudio. Lo que publiques aparecerá en Explorar.</p>
     </section>
 
-    <section class="page-shell" aria-label="Juegos publicados">
+    <section class="page-shell" aria-label="Resumen del estudio">
         <div class="studio-bar">
             <div>
                 <p class="results-count">{{ published_count }} juego{{ published_count|pluralize }} publicado{{ published_count|pluralize }}</p>
-                {% if enterprise.website %}
-                    <a class="studio-link" href="{{ enterprise.website }}" target="_blank" rel="noopener">{{ enterprise.website }}</a>
-                {% endif %}
+                <div class="studio-head-meta">
+                    {% if enterprise.is_verified %}
+                        <span class="badge ok">Estudio verificado</span>
+                    {% else %}
+                        <span class="badge warn">Verificación en revisión</span>
+                    {% endif %}
+                    {% if enterprise.website %}
+                        <a class="studio-link" href="{{ enterprise.website }}" target="_blank" rel="noopener">{{ enterprise.website }}</a>
+                    {% endif %}
+                </div>
             </div>
-            <a class="button" href="{% url 'enterprise_publish' %}">+ Publicar juego</a>
+            <div class="panel-actions">
+                <a class="button" href="{% url 'enterprise_publish' %}">+ Publicar juego</a>
+                <a class="button ghost" href="{% url 'community' %}">Ver comunidad</a>
+            </div>
+        </div>
+
+        <div class="kpi-grid" aria-label="Métricas del estudio">
+            {% for kpi in kpis %}
+                <div class="kpi-card">
+                    <span class="kpi-label">{{ kpi.label }}</span>
+                    <strong class="kpi-value">{{ kpi.value }}</strong>
+                    <span class="kpi-note">{{ kpi.note }}</span>
+                </div>
+            {% endfor %}
         </div>
 
         <div class="game-grid">
@@ -33,6 +53,13 @@
                         <div class="tags">
                             {% for tag in game.genre_list %}<span class="tag">{{ tag }}</span>{% endfor %}
                         </div>
+                        <p class="studio-game-stats">
+                            {{ game.library_total }} en biblioteca · {{ game.playing_total }} en curso · {{ game.done_total }} terminado{{ game.done_total|pluralize }}
+                        </p>
+                        <div class="studio-card-actions">
+                            <a class="button ghost small" href="{% url 'enterprise_game_edit' game.id %}">Editar</a>
+                            <a class="button ghost small" href="{% url 'game_community' game.slug %}">Comunidad ({{ game.discussion_total }})</a>
+                        </div>
                     </div>
                 </article>
             {% empty %}
@@ -43,5 +70,31 @@
                 </div>
             {% endfor %}
         </div>
+
+        <section class="panel-card dashboard-section" aria-labelledby="studio-community-title">
+            <header class="panel-card-head">
+                <div>
+                    <p class="panel-kicker">Feedback de jugadores</p>
+                    <h2 id="studio-community-title">Actividad reciente en tus juegos</h2>
+                </div>
+                <a class="panel-link" href="{% url 'community' %}">Ir a comunidad ↗</a>
+            </header>
+
+            <ul class="panel-list">
+                {% for thread in recent_discussions %}
+                    <li class="panel-row">
+                        <div class="panel-row-main">
+                            <a class="panel-row-title" href="{% url 'discussion_detail' thread.id %}">{{ thread.title }}</a>
+                            <span class="panel-row-meta">
+                                {{ thread.game.title }} · {{ thread.category }} · por {{ thread.author.username }} · {{ thread.reply_count }} respuesta{{ thread.reply_count|pluralize }}
+                            </span>
+                        </div>
+                        <a class="panel-mini-link" href="{% url 'discussion_detail' thread.id %}">Responder</a>
+                    </li>
+                {% empty %}
+                    <li class="panel-empty">Todavía no hay temas de comunidad abiertos sobre los juegos de tu estudio.</li>
+                {% endfor %}
+            </ul>
+        </section>
     </section>
 {% endblock %}

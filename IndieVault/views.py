@@ -1186,11 +1186,73 @@ def enterprise_dashboard(request):
     if enterprise is None:
         return redirect('enterprise_login')
 
-    games = enterprise.games.all()
+    games = list(
+        enterprise.games.annotate(
+            library_total=Count('library_entries', distinct=True),
+            playing_total=Count(
+                'library_entries',
+                filter=Q(library_entries__status=LibraryEntry.Status.PLAYING),
+                distinct=True,
+            ),
+            done_total=Count(
+                'library_entries',
+                filter=Q(library_entries__status=LibraryEntry.Status.DONE),
+                distinct=True,
+            ),
+            discussion_total=Count('discussions', distinct=True),
+        ).order_by('-id')
+    )
+    published_count = len(games)
+    total_saves = sum(game.library_total for game in games)
+    playing_count = sum(game.playing_total for game in games)
+    done_count = sum(game.done_total for game in games)
+    pending_count = max(total_saves - playing_count - done_count, 0)
+    threads_count = sum(game.discussion_total for game in games)
+    replies_count = DiscussionReply.objects.filter(
+        discussion__game__publisher=enterprise
+    ).count()
+    completion_rate = round(done_count * 100 / total_saves) if total_saves else 0
+
+    kpis = [
+        {
+            'label': 'Juegos publicados',
+            'value': published_count,
+            'note': 'En el catálogo de IndieVault',
+        },
+        {
+            'label': 'En bibliotecas',
+            'value': total_saves,
+            'note': f'{pending_count} pendientes · {playing_count} en curso',
+        },
+        {
+            'label': 'Terminados',
+            'value': done_count,
+            'note': (
+                f'{completion_rate}% de tasa de finalización'
+                if total_saves
+                else 'Sin partidas registradas'
+            ),
+        },
+        {
+            'label': 'Comunidad',
+            'value': threads_count,
+            'note': f'{replies_count} comentario{"" if replies_count == 1 else "s"} en tus juegos',
+        },
+    ]
+
+    recent_discussions = list(
+        Discussion.objects.filter(game__publisher=enterprise)
+        .select_related('author', 'game')
+        .annotate(reply_count=Count('replies'))
+        .order_by('-last_activity_at')[:5]
+    )
+
     return render(request, 'enterprise_dashboard.html', {
         'enterprise': enterprise,
         'games': games,
-        'published_count': games.count(),
+        'published_count': published_count,
+        'kpis': kpis,
+        'recent_discussions': recent_discussions,
     })
 
 
@@ -1215,6 +1277,34 @@ def enterprise_publish(request):
     return render(request, 'enterprise_publish.html', {
         'enterprise': enterprise,
         'form': form,
+    })
+
+
+@login_required(login_url='enterprise_login')
+def enterprise_game_edit(request, game_id):
+    enterprise = getattr(request.user, 'enterprise', None)
+    if enterprise is None:
+        return redirect('enterprise_login')
+
+    game = get_object_or_404(Game, pk=game_id, publisher=enterprise)
+
+    if request.method == 'POST':
+        form = GameForm(request.POST, instance=game)
+        if form.is_valid():
+            updated = form.save(commit=False)
+            updated.publisher = enterprise
+            updated.studio = enterprise.studio_name
+            updated.save()
+            messages.success(request, f'“{updated.title}” se actualizó correctamente.')
+            return redirect('enterprise_dashboard')
+    else:
+        form = GameForm(instance=game)
+
+    return render(request, 'enterprise_publish.html', {
+        'enterprise': enterprise,
+        'form': form,
+        'game': game,
+        'is_edit': True,
     })
 
 

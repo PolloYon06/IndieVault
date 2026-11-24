@@ -38,6 +38,7 @@ urlpatterns = [
     path('empresa/registro/', views.enterprise_register_view, name='enterprise_register'),
     path('empresa/', views.enterprise_dashboard, name='enterprise_dashboard'),
     path('empresa/publicar/', views.enterprise_publish, name='enterprise_publish'),
+    path('empresa/juegos/<int:game_id>/editar/', views.enterprise_game_edit, name='enterprise_game_edit'),
 
     # Panel de administración propio, con la estética del sitio.
     path('panel/', panel_views.panel_dashboard, name='panel_dashboard'),

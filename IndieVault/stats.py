@@ -1,9 +1,11 @@
 from collections import Counter
 
 from django.contrib.auth import get_user_model
+from django.db.models import Count, Q
+from django.urls import reverse
 from django.utils import timezone
 
-from .models import Game, LibraryEntry
+from .models import Discussion, DiscussionReply, Game, LibraryEntry
 
 MONTH_ABBR = ['ene', 'feb', 'mar', 'abr', 'may', 'jun',
               'jul', 'ago', 'sep', 'oct', 'nov', 'dic']
@@ -115,12 +117,58 @@ def user_stats(user):
     }
 
     done = status_counts.get(LibraryEntry.Status.DONE.value, 0)
+    playing_count = status_counts.get(LibraryEntry.Status.PLAYING.value, 0)
+    want_count = status_counts.get(LibraryEntry.Status.WANT.value, 0)
     progress = round(done * 100 / total_entries) if total_entries else 0
 
     saved_ids = {entry.game_id for entry in entries}
     total_games = Game.objects.count()
     saved = len(saved_ids)
     coverage = round(saved * 100 / total_games) if total_games else 0
+
+    discussions_count = Discussion.objects.filter(author=user).count()
+    replies_count = DiscussionReply.objects.filter(author=user).count()
+    community_total = discussions_count + replies_count
+
+    kpis = [
+        {
+            'label': 'En mi biblioteca',
+            'value': total_entries,
+            'note': f'{coverage}% del catálogo',
+            'href': reverse('biblioteca'),
+        },
+        {
+            'label': 'En curso',
+            'value': playing_count,
+            'note': f'{want_count} pendiente{"" if want_count == 1 else "s"} por empezar',
+            'href': reverse('biblioteca'),
+        },
+        {
+            'label': 'Terminados',
+            'value': done,
+            'note': f'{progress}% de finalización',
+            'href': reverse('biblioteca'),
+        },
+        {
+            'label': 'Comunidad',
+            'value': community_total,
+            'note': f'{discussions_count} tema{"" if discussions_count == 1 else "s"} · {replies_count} comentario{"" if replies_count == 1 else "s"}',
+            'href': reverse('community'),
+        },
+    ]
+
+    playing_entries = [
+        entry for entry in entries
+        if entry.status == LibraryEntry.Status.PLAYING.value
+    ][:6]
+
+    recent_threads = list(
+        Discussion.objects.filter(Q(author=user) | Q(replies__author=user))
+        .select_related('game', 'author')
+        .annotate(reply_count=Count('replies', distinct=True))
+        .distinct()
+        .order_by('-last_activity_at')[:5]
+    )
 
     charts = [
         {
@@ -181,6 +229,9 @@ def user_stats(user):
         'page_kicker': 'Tu actividad',
         'page_title': 'Tus estadísticas',
         'page_note': 'Un resumen de lo que has guardado y avanzado en IndieVault.',
+        'kpis': kpis,
+        'playing_entries': playing_entries,
+        'recent_threads': recent_threads,
         'charts': charts,
         'coverage': coverage,
     }

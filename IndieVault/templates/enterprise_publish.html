@@ -1,12 +1,17 @@
 {% extends 'base.html' %}
 
-{% block title %}Publicar juego · {{ enterprise.studio_name }}{% endblock %}
+{% block title %}{% if is_edit %}Editar {{ game.title }}{% else %}Publicar juego{% endif %} · {{ enterprise.studio_name }}{% endblock %}
 
 {% block content %}
     <section class="page-head" aria-labelledby="publish-title">
         <p class="eyebrow library">Panel de empresa</p>
-        <h1 id="publish-title">Publicar un <span class="lilac">juego</span></h1>
-        <p class="hero-copy">Completa la ficha. Se publicará en el catálogo bajo el nombre de {{ enterprise.studio_name }}.</p>
+        {% if is_edit %}
+            <h1 id="publish-title">Editar <span class="lilac">{{ game.title }}</span></h1>
+            <p class="hero-copy">Actualiza la ficha de tu juego en el catálogo de {{ enterprise.studio_name }}.</p>
+        {% else %}
+            <h1 id="publish-title">Publicar un <span class="lilac">juego</span></h1>
+            <p class="hero-copy">Completa la ficha. Se publicará en el catálogo bajo el nombre de {{ enterprise.studio_name }}.</p>
+        {% endif %}
     </section>
 
     <section class="page-shell" aria-label="Formulario de publicación">
@@ -31,7 +36,7 @@
             {% endfor %}
 
             <div class="form-actions">
-                <button class="button" type="submit">Publicar juego</button>
+                <button class="button" type="submit">{% if is_edit %}Guardar cambios{% else %}Publicar juego{% endif %}</button>
                 <a class="button remove" href="{% url 'enterprise_dashboard' %}">Cancelar</a>
             </div>
         </form>
