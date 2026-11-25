@@ -2,7 +2,7 @@ import base64
 import csv
 import json
 import tempfile
-from io import BytesIO
+from io import BytesIO, StringIO
 from pathlib import Path
 from time import time
 from unittest.mock import patch
@@ -2397,3 +2397,47 @@ class RoleDashboardsTests(TestCase):
 
         response_invalid = self.client.get(reverse('panel_dashboard'), {'range': 'invalid'})
         self.assertEqual(response_invalid.context['range_key'], '30d')
+
+
+class SeedDemoCommandTests(TestCase):
+    def test_seed_demo_creates_player_studio_and_clears_cleanly(self):
+        User = get_user_model()
+        initial_games = Game.objects.count()
+        initial_users = User.objects.count()
+
+        out = StringIO()
+        call_command(
+            'seed_demo',
+            users=5,
+            threads=3,
+            password='ClaveDemo-2026!',
+            stdout=out,
+        )
+
+        presenter = User.objects.get(username='demo_presentacion')
+        studio_user = User.objects.get(username='demo_estudio')
+        self.assertTrue(presenter.check_password('ClaveDemo-2026!'))
+        self.assertTrue(studio_user.check_password('ClaveDemo-2026!'))
+        self.assertTrue(studio_user.enterprise.is_verified)
+        self.assertEqual(Game.objects.filter(title__startswith='[DEMO] ').count(), 3)
+        self.assertGreaterEqual(LibraryEntry.objects.filter(user=presenter).count(), 3)
+        self.assertEqual(Discussion.objects.filter(title__startswith='[DEMO] ').count(), 3)
+
+        # El panel de empresa y el de jugador funcionan con las cuentas demo.
+        self.client.force_login(studio_user)
+        studio_resp = self.client.get(reverse('enterprise_dashboard'))
+        self.assertEqual(studio_resp.status_code, 200)
+        self.assertContains(studio_resp, 'Estudio verificado')
+        self.assertContains(studio_resp, '[DEMO] Ecos del Sur')
+
+        self.client.force_login(presenter)
+        player_resp = self.client.get(reverse('estadisticas'))
+        self.assertEqual(player_resp.status_code, 200)
+        self.assertContains(player_resp, 'Continuar jugando')
+
+        # --clear borra todos los datos demo y preserva el catálogo real.
+        call_command('seed_demo', clear=True, stdout=StringIO())
+        self.assertEqual(User.objects.filter(username__startswith='demo_').count(), 0)
+        self.assertEqual(Game.objects.filter(title__startswith='[DEMO] ').count(), 0)
+        self.assertEqual(Game.objects.count(), initial_games)
+        self.assertEqual(User.objects.count(), initial_users)

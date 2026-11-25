@@ -87,5 +87,19 @@ funcionar, casi seguro es eso: consulta tu IP y pásasela al administrador.
 - Solo el administrador aplica migraciones. Si cambias modelos, avisa antes.
 - Usa cuentas y datos de prueba, no datos personales reales.
 
+---
+
+## Datos de demostración
+
+Para poblar los paneles de jugador, empresa y administración durante una presentación sin mezclar datos reales, existe el comando `seed_demo`. Todos los registros creados llevan el prefijo `demo_` o `[DEMO]` para dejar constancia explícita de que son datos simulados:
+
+```bash
+# Crear u obtener datos de demostración (incluye demo_presentacion y demo_estudio)
+python manage.py seed_demo --password TuClaveDemo-2026!
+
+# Eliminar únicamente los datos de demostración
+python manage.py seed_demo --clear
+```
+
 Más detalle en [`docs/trabajo-equipo.md`](docs/trabajo-equipo.md) y
 [`docs/aws-rds.md`](docs/aws-rds.md).
