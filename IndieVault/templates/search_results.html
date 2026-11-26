@@ -1,0 +1,192 @@
+{% extends 'base.html' %}
+{% load indievault_tags %}
+
+{% block title %}{% if q %}Buscar «{{ q }}»{% else %}Buscar{% endif %} · IndieVault{% endblock %}
+
+{% block content %}
+<section class="page-head" aria-labelledby="search-title">
+    <p class="eyebrow">Buscador global</p>
+    <h1 id="search-title">Explora juegos, temas y <span>personas</span></h1>
+    <p class="hero-copy">Encuentra títulos del catálogo, conversaciones de la comunidad y perfiles visibles desde un solo lugar.</p>
+</section>
+
+<section class="page-shell">
+    <form class="filter-form search-global-form" method="get" action="{% url 'search_global' %}">
+        <input class="search-input" type="search" name="q" value="{{ q }}" placeholder="Buscar por título, estudio, género, tema o usuario…" aria-label="Buscar en IndieVault">
+        {% if search_type != 'all' %}
+            <input type="hidden" name="type" value="{{ search_type }}">
+        {% endif %}
+        <button class="button small" type="submit">Buscar</button>
+        {% if q %}
+            <a class="button small ghost" href="{% url 'search_global' %}">Limpiar</a>
+        {% endif %}
+    </form>
+
+    {% if q %}
+        <nav class="search-tabs" aria-label="Secciones de resultados">
+            {% for tab in tabs %}
+                <a class="search-tab{% if tab.active %} active{% endif %}"
+                   href="{% url 'search_global' %}?q={{ q|urlencode }}&amp;type={{ tab.key }}"
+                   {% if tab.active %}aria-current="page"{% endif %}>
+                    <span>{{ tab.label }}</span>
+                    <span class="search-tab-count">{{ tab.count }}</span>
+                </a>
+            {% endfor %}
+        </nav>
+
+        {% if search_type == 'all' %}
+            {% if total_count == 0 %}
+                <div class="empty-state">
+                    <h2>Sin resultados para «{{ q }}»</h2>
+                    <p>Prueba con otro término, el nombre de un estudio o explora directamente el catálogo.</p>
+                    <a class="button" href="{% url 'explorar_catalogo' %}">Ir al catálogo</a>
+                </div>
+            {% else %}
+                <section class="search-section" aria-labelledby="search-games-title">
+                    <div class="section-head">
+                        <div>
+                            <h2 id="search-games-title">Juegos</h2>
+                            <span class="section-note">{{ games_count }} coincidencia{{ games_count|pluralize }}</span>
+                        </div>
+                        {% if games_count %}
+                            <a class="section-link" href="{% url 'search_global' %}?q={{ q|urlencode }}&amp;type=games">Ver todos los juegos ({{ games_count }}) →</a>
+                        {% endif %}
+                    </div>
+                    {% if games_results %}
+                        <div class="game-grid">
+                            {% for game in games_results %}
+                                {% include 'partials/_game_card.html' with game=game in_library=in_library %}
+                            {% endfor %}
+                        </div>
+                    {% else %}
+                        <p class="community-empty">No hay juegos que coincidan con «{{ q }}».</p>
+                    {% endif %}
+                </section>
+
+                <section class="search-section" aria-labelledby="search-community-title">
+                    <div class="section-head">
+                        <div>
+                            <h2 id="search-community-title">Comunidad</h2>
+                            <span class="section-note">{{ community_count }} tema{{ community_count|pluralize }}</span>
+                        </div>
+                        {% if community_count %}
+                            <a class="section-link" href="{% url 'search_global' %}?q={{ q|urlencode }}&amp;type=community">Ver todos los temas ({{ community_count }}) →</a>
+                        {% endif %}
+                    </div>
+                    {% if community_results %}
+                        <div class="thread-list">
+                            {% for thread in community_results %}
+                                {% include 'partials/_thread_row.html' with thread=thread %}
+                            {% endfor %}
+                        </div>
+                    {% else %}
+                        <p class="community-empty">No hay temas de comunidad que coincidan con «{{ q }}».</p>
+                    {% endif %}
+                </section>
+
+                <section class="search-section" aria-labelledby="search-profiles-title">
+                    <div class="section-head">
+                        <div>
+                            <h2 id="search-profiles-title">Perfiles</h2>
+                            <span class="section-note">{{ profiles_count }} perfil{{ profiles_count|pluralize:"es" }} visible{{ profiles_count|pluralize }}</span>
+                        </div>
+                        {% if profiles_count %}
+                            <a class="section-link" href="{% url 'search_global' %}?q={{ q|urlencode }}&amp;type=profiles">Ver todos los perfiles ({{ profiles_count }}) →</a>
+                        {% endif %}
+                    </div>
+                    {% if profiles_results %}
+                        <div class="search-profile-grid">
+                            {% for profile in profiles_results %}
+                                <a class="search-profile-card" href="{% url 'public_profile' profile.user.username %}">
+                                    {% with avatar=profile.user|avatar_url %}
+                                        {% if avatar %}
+                                            <img class="search-profile-avatar" src="{{ avatar }}" alt="Foto de {{ profile.user|display_name }}">
+                                        {% else %}
+                                            <span class="search-profile-avatar search-profile-avatar-fallback" aria-hidden="true">{{ profile.user|initials }}</span>
+                                        {% endif %}
+                                    {% endwith %}
+                                    <div class="search-profile-info">
+                                        <strong>{{ profile.user|display_name }}</strong>
+                                        <span class="search-profile-handle">@{{ profile.user.username }}</span>
+                                        {% if profile.bio %}
+                                            <p class="search-profile-bio">{{ profile.bio|truncatechars:90 }}</p>
+                                        {% endif %}
+                                    </div>
+                                </a>
+                            {% endfor %}
+                        </div>
+                    {% else %}
+                        <p class="community-empty">No hay perfiles visibles que coincidan con «{{ q }}».</p>
+                    {% endif %}
+                </section>
+            {% endif %}
+        {% elif search_type == 'games' %}
+            <p class="results-count">{{ page_obj.paginator.count }} juego{{ page_obj.paginator.count|pluralize }} encontrado{{ page_obj.paginator.count|pluralize }}</p>
+            {% if games_results %}
+                <div class="game-grid">
+                    {% for game in games_results %}
+                        {% include 'partials/_game_card.html' with game=game in_library=in_library %}
+                    {% endfor %}
+                </div>
+                {% include 'panel/_pagination.html' %}
+            {% else %}
+                <div class="empty-state">
+                    <h2>No encontramos juegos para «{{ q }}»</h2>
+                    <p>Intenta con otro título, estudio o etiqueta de género.</p>
+                </div>
+            {% endif %}
+        {% elif search_type == 'community' %}
+            <p class="results-count">{{ page_obj.paginator.count }} tema{{ page_obj.paginator.count|pluralize }} encontrado{{ page_obj.paginator.count|pluralize }}</p>
+            {% if community_results %}
+                <div class="thread-list">
+                    {% for thread in community_results %}
+                        {% include 'partials/_thread_row.html' with thread=thread %}
+                    {% endfor %}
+                </div>
+                {% include 'panel/_pagination.html' %}
+            {% else %}
+                <div class="empty-state">
+                    <h2>No encontramos temas para «{{ q }}»</h2>
+                    <p>Prueba otra búsqueda o abre una conversación nueva en la comunidad.</p>
+                </div>
+            {% endif %}
+        {% elif search_type == 'profiles' %}
+            <p class="results-count">{{ page_obj.paginator.count }} perfil{{ page_obj.paginator.count|pluralize:"es" }} visible{{ page_obj.paginator.count|pluralize }}</p>
+            {% if profiles_results %}
+                <div class="search-profile-grid">
+                    {% for profile in profiles_results %}
+                        <a class="search-profile-card" href="{% url 'public_profile' profile.user.username %}">
+                            {% with avatar=profile.user|avatar_url %}
+                                {% if avatar %}
+                                    <img class="search-profile-avatar" src="{{ avatar }}" alt="Foto de {{ profile.user|display_name }}">
+                                {% else %}
+                                    <span class="search-profile-avatar search-profile-avatar-fallback" aria-hidden="true">{{ profile.user|initials }}</span>
+                                {% endif %}
+                            {% endwith %}
+                            <div class="search-profile-info">
+                                <strong>{{ profile.user|display_name }}</strong>
+                                <span class="search-profile-handle">@{{ profile.user.username }}</span>
+                                {% if profile.bio %}
+                                    <p class="search-profile-bio">{{ profile.bio|truncatechars:90 }}</p>
+                                {% endif %}
+                            </div>
+                        </a>
+                    {% endfor %}
+                </div>
+                {% include 'panel/_pagination.html' %}
+            {% else %}
+                <div class="empty-state">
+                    <h2>No encontramos perfiles visibles para «{{ q }}»</h2>
+                    <p>Solo se muestran cuentas activas cuya configuración de privacidad permite verlas.</p>
+                </div>
+            {% endif %}
+        {% endif %}
+    {% else %}
+        <div class="empty-state">
+            <h2>¿Qué estás buscando hoy?</h2>
+            <p>Escribe el nombre de un juego independiente, un estudio, un género, un tema del foro o una persona de la comunidad.</p>
+            <a class="button ghost" href="{% url 'explorar_catalogo' %}">Explorar catálogo completo</a>
+        </div>
+    {% endif %}
+</section>
+{% endblock %}

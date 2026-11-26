@@ -24,6 +24,7 @@
         <nav class="site-nav" aria-label="Navegación principal">
             <a href="{% url 'index' %}"{% if request.resolver_match.url_name == 'index' %} class="active" aria-current="page"{% endif %}>Inicio</a>
             <a href="{% url 'explorar' %}"{% if request.resolver_match.url_name == 'explorar' or request.resolver_match.url_name == 'explorar_catalogo' %} class="active" aria-current="page"{% endif %}>Explorar</a>
+            <a href="{% url 'search_global' %}"{% if request.resolver_match.url_name == 'search_global' %} class="active" aria-current="page"{% endif %}>Buscar</a>
             <a href="{% url 'community' %}"{% if request.resolver_match.url_name == 'community' or request.resolver_match.url_name == 'discussion_detail' or request.resolver_match.url_name == 'game_community' %} class="active" aria-current="page"{% endif %}>Comunidad</a>
             {% if not user.is_staff %}
                 <a class="library{% if request.resolver_match.url_name == 'biblioteca' %} active{% endif %}" href="{% url 'biblioteca' %}"{% if request.resolver_match.url_name == 'biblioteca' %} aria-current="page"{% endif %}>Biblioteca</a>
@@ -38,6 +39,12 @@
                     {% endif %}
                     <a href="{% url 'estadisticas' %}"{% if request.resolver_match.url_name == 'estadisticas' %} class="active" aria-current="page"{% endif %}>Estadísticas</a>
                 {% endif %}
+                <a class="nav-notif{% if request.resolver_match.url_name == 'notifications' %} active{% endif %}" href="{% url 'notifications' %}"{% if request.resolver_match.url_name == 'notifications' %} aria-current="page"{% endif %}>
+                    <span>Notificaciones</span>
+                    {% if unread_notifications_count %}
+                        <span class="notif-badge" aria-label="{{ unread_notifications_count }} sin leer">{{ unread_notifications_count }}</span>
+                    {% endif %}
+                </a>
                 <a class="nav-profile{% if request.resolver_match.url_name == 'perfil' %} active{% endif %}" href="{% url 'perfil' %}" title="Mi perfil">
                     {% with avatar=user|avatar_url %}
                         {% if avatar %}

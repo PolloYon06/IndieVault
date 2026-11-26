@@ -1,0 +1,100 @@
+{% extends 'base.html' %}
+{% load indievault_tags %}
+
+{% block title %}Notificaciones · IndieVault{% endblock %}
+
+{% block content %}
+<section class="page-head" aria-labelledby="notif-title">
+    <p class="eyebrow">Bandeja personal</p>
+    <h1 id="notif-title">Tus <span>notificaciones</span></h1>
+    <p class="hero-copy">
+        {% if unread_count %}
+            Tienes {{ unread_count }} notificación{{ unread_count|pluralize:"es" }} sin leer.
+        {% else %}
+            Estás al día: no tienes notificaciones pendientes por revisar.
+        {% endif %}
+    </p>
+    {% if unread_count %}
+        <div class="page-head-actions">
+            <form method="post" action="{% url 'notifications_mark_all_read' %}">
+                {% csrf_token %}
+                <button class="button small" type="submit">Marcar todas como leídas</button>
+            </form>
+        </div>
+    {% endif %}
+</section>
+
+<section class="page-shell">
+    {% if page_obj.object_list %}
+        <div class="notif-list">
+            {% for notif in page_obj %}
+                <article class="notif-item{% if not notif.is_read %} unread{% endif %}">
+                    <div class="notif-avatar-wrap" aria-hidden="true">
+                        {% if notif.actor %}
+                            {% with avatar=notif.actor|avatar_url %}
+                                {% if avatar %}
+                                    <img class="thread-avatar notif-avatar" src="{{ avatar }}" alt="">
+                                {% else %}
+                                    <span class="thread-avatar thread-avatar-fallback notif-avatar">{{ notif.actor|initials }}</span>
+                                {% endif %}
+                            {% endwith %}
+                        {% else %}
+                            <span class="thread-avatar thread-avatar-fallback notif-avatar">◈</span>
+                        {% endif %}
+                    </div>
+
+                    <div class="notif-body">
+                        <p class="notif-text">
+                            {% if notif.actor %}
+                                <a class="notif-actor" href="{% url 'public_profile' notif.actor.username %}">{{ notif.actor|display_name }}</a>
+                            {% endif %}
+                            {% if notif.target_url %}
+                                <a class="notif-link" href="{{ notif.target_url }}">{{ notif.verb }}</a>
+                            {% else %}
+                                <span>{{ notif.verb }}</span>
+                            {% endif %}
+                        </p>
+                        <div class="notif-meta">
+                            <span>{{ notif.created_at|date:"d M Y, H:i" }}</span>
+                            {% if not notif.is_read %}
+                                <span class="badge ok">Nueva</span>
+                            {% endif %}
+                        </div>
+                    </div>
+
+                    <div class="notif-actions">
+                        {% if notif.target_url %}
+                            {% if not notif.is_read %}
+                                <form class="inline-form" method="post" action="{% url 'notification_mark_read' notif.id %}">
+                                    {% csrf_token %}
+                                    <input type="hidden" name="go" value="1">
+                                    <button class="button small" type="submit">Ir al enlace</button>
+                                </form>
+                                <form class="inline-form" method="post" action="{% url 'notification_mark_read' notif.id %}">
+                                    {% csrf_token %}
+                                    <button class="button small ghost" type="submit">Marcar como leída</button>
+                                </form>
+                            {% else %}
+                                <a class="button small ghost" href="{{ notif.target_url }}">Abrir</a>
+                            {% endif %}
+                        {% elif not notif.is_read %}
+                            <form class="inline-form" method="post" action="{% url 'notification_mark_read' notif.id %}">
+                                {% csrf_token %}
+                                <button class="button small ghost" type="submit">Marcar como leída</button>
+                            </form>
+                        {% endif %}
+                    </div>
+                </article>
+            {% endfor %}
+        </div>
+
+        {% include 'panel/_pagination.html' %}
+    {% else %}
+        <div class="empty-state">
+            <h2>Sin notificaciones todavía</h2>
+            <p>Cuando alguien responda en tus temas de la comunidad o haya novedades sobre tu cuenta, aparecerán aquí.</p>
+            <a class="button ghost" href="{% url 'community' %}">Ir a la comunidad</a>
+        </div>
+    {% endif %}
+</section>
+{% endblock %}

@@ -17,6 +17,8 @@
             <h1 id="page-title">Descubre juegos por <span>{{ price_label|lower }}</span></h1>
         {% elif sort == 'added' %}
             <h1 id="page-title">Las últimas <span>incorporaciones</span></h1>
+        {% elif source == 'studios' %}
+            <h1 id="page-title">Publicados en <span>IndieVault</span></h1>
         {% else %}
             <h1 id="page-title">Encuentra tu próximo <span>mundo</span></h1>
         {% endif %}
@@ -35,6 +37,8 @@
                 Descubre juegos independientes de la categoría {{ genre }}.
             {% elif sort == 'added' %}
                 Explora los juegos incorporados más recientemente a IndieVault.
+            {% elif source == 'studios' %}
+                Explora los juegos publicados directamente por estudios independientes en IndieVault.
             {% else %}
                 Busca por título o estudio y encuentra juegos independientes para tu próxima aventura.
             {% endif %}
@@ -58,6 +62,9 @@
                     {% if personalized %}
                         <input type="hidden" name="coleccion" value="para-ti">
                     {% endif %}
+                    {% if source %}
+                        <input type="hidden" name="source" value="{{ source }}">
+                    {% endif %}
                     <input class="search-input" type="search" name="q" value="{{ q }}" placeholder="Buscar por título o estudio…" aria-label="Buscar juegos">
                     <input type="hidden" name="genre" value="{{ genre }}">
                     <select class="filter-select" name="sort" aria-label="Ordenar por">
@@ -80,6 +87,11 @@
                     </select>
                     <button class="button" type="submit">Buscar</button>
                 </form>
+            </div>
+
+            <div class="toolbar chip-row" role="group" aria-label="Filtrar por origen">
+                <a class="chip{% if not source %} active{% endif %}" href="{{ catalog_url }}{% querystring catalog_params source=None %}"{% if not source %} aria-pressed="true"{% endif %}>Todo el catálogo</a>
+                <a class="chip{% if source == 'studios' %} active{% endif %}" href="{{ catalog_url }}{% querystring catalog_params source='studios' %}"{% if source == 'studios' %} aria-pressed="true"{% endif %}>Publicados en IndieVault</a>
             </div>
 
             <div class="toolbar chip-row" role="group" aria-label="Filtrar por género">

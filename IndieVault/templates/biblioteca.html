@@ -36,6 +36,31 @@
                     </select>
                     <button class="button small library" type="submit">Actualizar</button>
                 </form>
+                {% if entry.status == 'Terminado' %}
+                <div class="entry-rating-panel">
+                    {% if entry.rating %}
+                        <div class="entry-rating-current">
+                            <span class="rating-stars" aria-label="{{ entry.rating }} de 5 estrellas">{{ entry.rating_stars }}</span>
+                            {% if entry.review %}
+                                <p class="entry-review-text">«{{ entry.review }}»</p>
+                            {% endif %}
+                        </div>
+                    {% endif %}
+                    <form class="entry-review-form" method="post" action="{% url 'rate_library_entry' entry.id %}">
+                        {% csrf_token %}
+                        <label class="sr-only" for="rating-{{ entry.id }}">Valoración de {{ entry.game.title }}</label>
+                        <select id="rating-{{ entry.id }}" name="rating">
+                            <option value="">Sin valorar</option>
+                            {% for value, label in entry.RATING_CHOICES %}
+                                <option value="{{ value }}"{% if entry.rating == value %} selected{% endif %}>{{ label }}</option>
+                            {% endfor %}
+                        </select>
+                        <label class="sr-only" for="review-{{ entry.id }}">Micro-reseña de {{ entry.game.title }}</label>
+                        <input id="review-{{ entry.id }}" type="text" name="review" value="{{ entry.review }}" maxlength="280" placeholder="Micro-reseña opcional (máx. 280 caracteres)…">
+                        <button class="button small library" type="submit">{% if entry.rating %}Guardar valoración{% else %}Valorar{% endif %}</button>
+                    </form>
+                </div>
+                {% endif %}
             </div>
             {% empty %}
             <p class="count shelf-empty">Sin títulos todavía.</p>

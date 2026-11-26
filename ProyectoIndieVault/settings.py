@@ -83,6 +83,7 @@ TEMPLATES = [
                 'django.contrib.auth.context_processors.auth',
                 'django.contrib.messages.context_processors.messages',
                 'IndieVault.context_processors.appearance',
+                'IndieVault.context_processors.notifications',
             ],
         },
     },

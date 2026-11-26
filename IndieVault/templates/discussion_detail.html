@@ -31,6 +31,9 @@
                 {% endwith %}
                 <span>{{ discussion.author|display_name }}</span>
             </a>
+            {% if discussion.game and discussion.game.publisher and discussion.author_id == discussion.game.publisher.user_id %}
+                <span class="badge ok">✓ Desarrollador oficial</span>
+            {% endif %}
             <span>{{ discussion.created_at|date:"d M Y, H:i" }}</span>
             {% if discussion.game %}
                 <span>en <a href="{% url 'game_detail' discussion.game.slug %}">{{ discussion.game.title }}</a></span>
@@ -92,6 +95,9 @@
                         {% endwith %}
                         <span>{{ reply.author|display_name }}</span>
                     </a>
+                    {% if discussion.game and discussion.game.publisher and reply.author_id == discussion.game.publisher.user_id %}
+                        <span class="badge ok">✓ Desarrollador oficial</span>
+                    {% endif %}
                     <span>{{ reply.created_at|date:"d M Y, H:i" }}</span>
                     {% if user.is_authenticated %}
                         {% if user == reply.author or user.is_staff %}

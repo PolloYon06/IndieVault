@@ -1,0 +1,75 @@
+{% load indievault_tags %}
+{% comment %}
+    Bloque de valoraciones y micro-reseñas para la ficha de juego.
+
+    Espera `game`, `rating_avg`, `rating_count`, `rated_entries` y, opcionalmente,
+    `in_library` o `user_library_entry` para ofrecer el formulario rápido si la
+    persona terminó el título.
+{% endcomment %}
+<section class="page-shell game-ratings-section" aria-labelledby="ratings-title">
+    <div class="section-head">
+        <div>
+            <p class="eyebrow">Valoraciones</p>
+            <h2 id="ratings-title">Opiniones de quienes lo terminaron</h2>
+            {% if rating_count %}
+                <p class="rating-summary">★ {{ rating_avg|floatformat:1 }} / 5 · {{ rating_count }} valoracion{{ rating_count|pluralize:"es" }}</p>
+            {% else %}
+                <p class="section-note">Todavía no hay valoraciones para este título.</p>
+            {% endif %}
+        </div>
+    </div>
+
+    {% with current_entry=user_library_entry|default:in_library %}
+        {% if user.is_authenticated and not user.is_staff and current_entry and current_entry.status == 'Terminado' %}
+            <div class="rating-quick-card">
+                <p class="rating-quick-label">
+                    {% if current_entry.rating %}
+                        Tu valoración actual: <span class="rating-stars">{{ current_entry.rating_stars }}</span>
+                    {% else %}
+                        Terminaste {{ game.title }}. Deja tu nota y una micro-reseña opcional:
+                    {% endif %}
+                </p>
+                <form class="entry-review-form" method="post" action="{% url 'rate_library_entry' current_entry.id %}">
+                    {% csrf_token %}
+                    <label class="sr-only" for="detail-rating-{{ current_entry.id }}">Valoración de {{ game.title }}</label>
+                    <select id="detail-rating-{{ current_entry.id }}" name="rating">
+                        <option value="">Sin valorar</option>
+                        {% for value, label in current_entry.RATING_CHOICES %}
+                            <option value="{{ value }}"{% if current_entry.rating == value %} selected{% endif %}>{{ label }}</option>
+                        {% endfor %}
+                    </select>
+                    <label class="sr-only" for="detail-review-{{ current_entry.id }}">Micro-reseña de {{ game.title }}</label>
+                    <input id="detail-review-{{ current_entry.id }}" type="text" name="review" value="{{ current_entry.review }}" maxlength="280" placeholder="Comparte tu impresión en hasta 280 caracteres…">
+                    <button class="button small" type="submit">{% if current_entry.rating %}Actualizar nota{% else %}Publicar nota{% endif %}</button>
+                </form>
+            </div>
+        {% endif %}
+    {% endwith %}
+
+    <div class="review-list">
+        {% for item in rated_entries %}
+            <article class="review-card">
+                <div class="review-card-head">
+                    <a class="thread-author" href="{% url 'public_profile' item.user.username %}">
+                        {% with avatar=item.user|avatar_url %}
+                            {% if avatar %}
+                                <img class="thread-avatar" src="{{ avatar }}" alt="">
+                            {% else %}
+                                <span class="thread-avatar thread-avatar-fallback" aria-hidden="true">{{ item.user|initials }}</span>
+                            {% endif %}
+                        {% endwith %}
+                        <span>{{ item.user|display_name }}</span>
+                    </a>
+                    <span class="rating-stars" aria-label="{{ item.rating }} de 5 estrellas">{{ item.rating_stars }}</span>
+                </div>
+                {% if item.review %}
+                    <p class="review-card-body">{{ item.review }}</p>
+                {% else %}
+                    <p class="review-card-body muted">Calificó este juego con {{ item.rating }} ★.</p>
+                {% endif %}
+            </article>
+        {% empty %}
+            <p class="community-empty">Nadie ha dejado una reseña todavía. Sé la primera persona en terminarlo y valorarlo.</p>
+        {% endfor %}
+    </div>
+</section>

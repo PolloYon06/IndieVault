@@ -1,13 +1,17 @@
 from django.urls import path
 
-from . import panel_views, views
+from . import panel_views, platform_views, views
 
 urlpatterns = [
     path('', views.index, name='index'),
+    path('buscar/', platform_views.search_global, name='search_global'),
     path('explorar/', views.explorar, name='explorar'),
     path('explorar/catalogo/', views.explorar_catalogo, name='explorar_catalogo'),
     path('biblioteca/', views.biblioteca, name='biblioteca'),
     path('estadisticas/', views.estadisticas, name='estadisticas'),
+    path('notificaciones/', platform_views.notifications_view, name='notifications'),
+    path('notificaciones/<int:notification_id>/leer/', platform_views.notification_mark_read, name='notification_mark_read'),
+    path('notificaciones/leer-todas/', platform_views.notifications_mark_all_read, name='notifications_mark_all_read'),
     path('perfil/', views.perfil, name='perfil'),
     path('perfil/privacidad/', views.privacy, name='privacy'),
     path('perfil/privacidad/exportar/', views.account_export, name='account_export'),
@@ -20,6 +24,7 @@ urlpatterns = [
     path('biblioteca/agregar/<int:game_id>/', views.add_to_library, name='add_to_library'),
     path('biblioteca/quitar/<int:game_id>/', views.remove_from_library, name='remove_from_library'),
     path('biblioteca/estado/<int:entry_id>/', views.update_library_status, name='update_library_status'),
+    path('biblioteca/valorar/<int:entry_id>/', platform_views.rate_library_entry, name='rate_library_entry'),
     path('juego/<slug:slug>/', views.game_detail, name='game_detail'),
     path('juego/<slug:slug>/comunidad/', views.game_community, name='game_community'),
     path('juego/<slug:slug>/comunidad/nuevo/', views.discussion_create, name='game_discussion_create'),

@@ -39,6 +39,7 @@ from .forms import (
     ProfileForm,
 )
 from .models import Discussion, DiscussionReply, Game, LibraryEntry, Profile
+from .platform_views import get_game_rating_context
 from .stats import user_stats
 
 
@@ -194,6 +195,12 @@ def explorar_catalogo(request):
     query = request.GET.get('q', '').strip()
     sort = request.GET.get('sort', '')
     price = request.GET.get('price', '')
+    source = request.GET.get('source', '')
+
+    if source == 'studios':
+        games = games.filter(publisher__isnull=False)
+    else:
+        source = ''
 
     if genre:
         games = games.filter(genres__icontains=genre)
@@ -262,7 +269,13 @@ def explorar_catalogo(request):
         None if number == paginator.ELLIPSIS else number
         for number in paginator.get_elided_page_range(page_obj.number, on_each_side=1, on_ends=1)
     ]
-    for name, value in {'q': query, 'genre': genre, 'sort': sort, 'price': price}.items():
+    for name, value in {
+        'q': query,
+        'genre': genre,
+        'sort': sort,
+        'price': price,
+        'source': source,
+    }.items():
         if value:
             catalog_params[name] = value
         else:
@@ -300,12 +313,13 @@ def explorar_catalogo(request):
         'q': query,
         'sort': sort,
         'price': price,
+        'source': source,
         'in_library': in_library,
     })
 
 
 def game_detail(request, slug):
-    game = get_object_or_404(Game, slug=slug)
+    game = get_object_or_404(Game.objects.select_related('publisher'), slug=slug)
     first_genre = game.genre_list()[0] if game.genre_list() else None
     related = []
     if first_genre:
@@ -337,6 +351,9 @@ def game_detail(request, slug):
         .order_by('-created_at')[:4]
     )
 
+    rating_ctx = get_game_rating_context(game, None)
+    rating_ctx['user_library_entry'] = in_library
+
     return render(request, 'game_detail.html', {
         'game': game,
         'related': related,
@@ -345,6 +362,7 @@ def game_detail(request, slug):
         'discussions': discussions,
         'recent_replies': recent_replies,
         'discussion_count': Discussion.objects.filter(game=game).count(),
+        **rating_ctx,
     })
 
 
@@ -628,7 +646,7 @@ def discussion_detail(request, discussion_id):
     """Tema con sus comentarios y el formulario para responder."""
     discussion = get_object_or_404(
         Discussion.objects.select_related(
-            'author', 'author__profile', 'game'
+            'author', 'author__profile', 'game', 'game__publisher'
         ),
         pk=discussion_id,
     )

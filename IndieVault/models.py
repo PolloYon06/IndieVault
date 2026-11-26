@@ -1,5 +1,6 @@
 from django.conf import settings
-from django.db import models
+from django.core.exceptions import ObjectDoesNotExist
+from django.db import DatabaseError, models, transaction
 from django.urls import reverse
 from django.utils import timezone
 from django.utils.text import slugify
@@ -170,6 +171,8 @@ class LibraryEntry(models.Model):
         PLAYING = 'En curso', 'En curso'
         DONE = 'Terminado', 'Terminado'
 
+    RATING_CHOICES = [(i, f'{i} ★') for i in range(1, 6)]
+
     user = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.CASCADE,
@@ -189,6 +192,59 @@ class LibraryEntry(models.Model):
 
     def __str__(self):
         return f'{self.game.title} · {self.status}'
+
+    def _safe_review_record(self):
+        if self.pk is None:
+            return None
+        try:
+            with transaction.atomic():
+                return self.review_record
+        except (ObjectDoesNotExist, DatabaseError):
+            return None
+
+    @property
+    def rating(self):
+        record = self._safe_review_record()
+        return record.rating if record is not None else None
+
+    @property
+    def review(self):
+        record = self._safe_review_record()
+        return record.review if record is not None else ''
+
+    def rating_stars(self):
+        val = self.rating
+        if not val:
+            return ''
+        return '★' * val + '☆' * (5 - val)
+
+
+class LibraryReview(models.Model):
+    """Valoración y micro-reseña aislada en su propia tabla para no alterar LibraryEntry."""
+
+    entry = models.OneToOneField(
+        LibraryEntry,
+        on_delete=models.CASCADE,
+        related_name='review_record',
+    )
+    rating = models.PositiveSmallIntegerField(choices=LibraryEntry.RATING_CHOICES)
+    review = models.CharField(max_length=280, blank=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['-updated_at', '-pk']
+        verbose_name = 'valoración de biblioteca'
+        verbose_name_plural = 'valoraciones de biblioteca'
+
+    def __str__(self):
+        return f'{self.entry.user.username} · {self.entry.game.title} ({self.rating} ★)'
+
+    @property
+    def user(self):
+        return self.entry.user
+
+    def rating_stars(self):
+        return '★' * self.rating + '☆' * (5 - self.rating)
 
 
 class Discussion(models.Model):
@@ -266,4 +322,48 @@ class DiscussionReply(models.Model):
     def __str__(self):
         preview = self.body[:60].replace('\n', ' ')
         return f'{self.author.username}: {preview}'
+
+
+class Notification(models.Model):
+    """Notificación interna para actividad de comunidad y avisos de cuenta."""
+
+    recipient = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name='notifications',
+    )
+    actor = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='triggered_notifications',
+    )
+    discussion = models.ForeignKey(
+        Discussion,
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+        related_name='notifications',
+    )
+    reply = models.ForeignKey(
+        DiscussionReply,
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+        related_name='notifications',
+    )
+    verb = models.CharField(max_length=200)
+    target_url = models.CharField(max_length=255, blank=True)
+    is_read = models.BooleanField(default=False, db_index=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-created_at']
+        verbose_name = 'notificación'
+        verbose_name_plural = 'notificaciones'
+
+    def __str__(self):
+        return f'Para {self.recipient_id}: {self.verb}'
+
 
